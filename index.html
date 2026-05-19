@@ -20,6 +20,10 @@
   header { padding: 12px 20px; background: #111827; color: white; border-bottom: 1px solid #000; }
   header h1 { margin: 0; font-size: 1.15rem; font-weight: 600; letter-spacing: 0.01em; }
   header p { margin: 2px 0 0; font-size: 0.8rem; color: #9ca3af; }
+  .intro { padding: 12px 24px; background: #ffffff; border-bottom: 1px solid var(--border); font-size: 0.92rem; line-height: 1.55; color: #1f2937; max-width: 1100px; }
+  .intro a { color: var(--accent); text-decoration: none; }
+  .intro a:hover { text-decoration: underline; }
+  .intro code { background: #f1f5f9; padding: 1px 5px; border-radius: 3px; font-size: 0.88em; }
   #toolbar { padding: 8px 20px; background: #f3f4f6; border-bottom: 1px solid var(--border); display: flex; gap: 12px; align-items: center; font-size: 0.85rem; }
   #toolbar input { padding: 4px 10px; font-size: 0.85rem; width: 280px; border: 1px solid var(--border); border-radius: 4px; }
   #toolbar .hint { color: var(--muted); }
@@ -42,6 +46,17 @@
     <h1>Bayesian Exoplanets — TOI catalog</h1>
     <p id="meta">loading…</p>
   </header>
+  <section class="intro">
+    Here we compiled a list of all exoplanet candidates, independently verified using our pipeline
+    (we recovered ≳&nbsp;99% at SNR&nbsp;&gt;&nbsp;20 and 95% of all candidates), which were already
+    known from the TESS Objects of Interest (TOI) catalog. For consistency we used only the
+    <code>SPOC</code> flux and focused on planets with at least three transits, so that we could
+    make use of the statistical validation tools developed in
+    <a href="https://arxiv.org/abs/2407.17565" target="_blank" rel="noopener">Robnik et al. (2024)</a>.
+    This limited us to consider ∼&nbsp;80% of the data, or about 5,000 stars. We report the p-value
+    (based on the Null Signal Template (NST) developed in the aforementioned paper) for each
+    planetary candidate.
+  </section>
   <div id="toolbar">
     <input id="filter" placeholder="Filter TIC / TOI / Disposition…" autocomplete="off">
     <span class="hint">Click any row to see its diagnostic plot · Click column headers to sort</span>
