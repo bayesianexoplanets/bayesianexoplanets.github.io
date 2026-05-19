@@ -1,1 +1,190 @@
-<h1> Hello World </h1>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bayesian Exoplanets — TOI catalog</title>
+<link href="https://unpkg.com/tabulator-tables@6.3.1/dist/css/tabulator.min.css" rel="stylesheet">
+<script src="https://unpkg.com/tabulator-tables@6.3.1/dist/js/tabulator.min.js"></script>
+<style>
+  :root {
+    --bg: #fafafa;
+    --panel: #ffffff;
+    --border: #ddd;
+    --muted: #6b7280;
+    --accent: #2563eb;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: #111; }
+  .container { display: flex; flex-direction: column; height: 100vh; }
+  header { padding: 12px 20px; background: #111827; color: white; border-bottom: 1px solid #000; }
+  header h1 { margin: 0; font-size: 1.15rem; font-weight: 600; letter-spacing: 0.01em; }
+  header p { margin: 2px 0 0; font-size: 0.8rem; color: #9ca3af; }
+  #toolbar { padding: 8px 20px; background: #f3f4f6; border-bottom: 1px solid var(--border); display: flex; gap: 12px; align-items: center; font-size: 0.85rem; }
+  #toolbar input { padding: 4px 10px; font-size: 0.85rem; width: 280px; border: 1px solid var(--border); border-radius: 4px; }
+  #toolbar .hint { color: var(--muted); }
+  #table-wrap { flex: 1 1 auto; min-height: 200px; padding: 0 20px; overflow: hidden; }
+  #table { height: 100%; }
+  #plot-panel { flex: 0 0 auto; padding: 10px 20px 16px; background: var(--panel); border-top: 1px solid var(--border); }
+  #plot-panel h2 { margin: 0 0 6px; font-size: 0.95rem; font-weight: 500; color: #374151; }
+  #plot-panel .placeholder { color: var(--muted); font-style: italic; font-size: 0.9rem; }
+  #plot-wrap { display: flex; gap: 16px; align-items: flex-start; }
+  #plot { max-width: 100%; max-height: 380px; border: 1px solid var(--border); background: #fff; display: none; }
+  .tabulator-row.tabulator-selected { background: #dbeafe !important; }
+  .tabulator-row.tabulator-selectable:hover { background: #e0e7ff !important; cursor: pointer; }
+  .tabulator { font-size: 0.82rem; }
+  .tabulator .tabulator-header { background: #f9fafb; font-weight: 500; }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>Bayesian Exoplanets — TOI catalog</h1>
+    <p id="meta">loading…</p>
+  </header>
+  <div id="toolbar">
+    <input id="filter" placeholder="Filter TIC / TOI / Disposition…" autocomplete="off">
+    <span class="hint">Click any row to see its diagnostic plot · Click column headers to sort</span>
+  </div>
+  <div id="table-wrap"><div id="table"></div></div>
+  <div id="plot-panel">
+    <h2 id="plot-title" class="placeholder">Click a row to see its plot</h2>
+    <div id="plot-wrap"><img id="plot" alt=""></div>
+  </div>
+</div>
+
+<script>
+const CSV_URL = 'tois.csv';
+
+function parseCSV(text) {
+  // tois.csv is plain comma-delimited; no quoted fields with embedded commas.
+  const lines = text.replace(/\r/g, '').split('\n').filter(l => l.length);
+  const header = lines[0].split(',');
+  return lines.slice(1).map(line => {
+    const cells = line.split(',');
+    const obj = {};
+    header.forEach((h, i) => {
+      const v = cells[i];
+      if (v == null || v === '') {
+        obj[h] = null;
+      } else if (v === 'True' || v === 'False') {
+        obj[h] = (v === 'True');
+      } else if (!isNaN(v) && v.trim() !== '') {
+        obj[h] = Number(v);
+      } else {
+        obj[h] = v;
+      }
+    });
+    return obj;
+  });
+}
+
+function fmtNum(p) {
+  return cell => {
+    const v = cell.getValue();
+    if (v == null || isNaN(v)) return '';
+    // For extreme log10(p) values, use scientific notation
+    if (Math.abs(v) >= 1e5 || (v !== 0 && Math.abs(v) < 1e-3)) {
+      return v.toExponential(2);
+    }
+    return Number(v).toLocaleString(undefined, {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: p,
+    });
+  };
+}
+
+function fmtInt(cell) {
+  const v = cell.getValue();
+  return v == null ? '' : Number(v).toLocaleString();
+}
+
+function fmtBool(cell) {
+  return cell.getValue() ? '✓' : '';
+}
+
+async function main() {
+  const resp = await fetch(CSV_URL);
+  if (!resp.ok) {
+    document.getElementById('meta').textContent = `Failed to load ${CSV_URL}: ${resp.status}`;
+    return;
+  }
+  const text = await resp.text();
+  const rows = parseCSV(text);
+
+  // Assign known_idx per TIC in tois.csv row order — must match build_plots.py's groupby.cumcount().
+  const counter = new Map();
+  rows.forEach(r => {
+    const k = counter.get(r.TIC) ?? 0;
+    r.known_idx = k;
+    counter.set(r.TIC, k + 1);
+  });
+
+  document.getElementById('meta').textContent =
+    `${rows.length.toLocaleString()} TOIs across ${counter.size.toLocaleString()} unique TICs · ` +
+    `period/phase/τ/SNR from pipeline fits · NST stats from 10 null-simulation batches per star`;
+
+  const table = new Tabulator('#table', {
+    data: rows,
+    height: '100%',
+    layout: 'fitDataTable',
+    selectableRows: 1,
+    movableColumns: true,
+    initialSort: [{ column: 'SNR', dir: 'desc' }],
+    columns: [
+      { title: 'TIC',          field: 'TIC',                       sorter: 'number', hozAlign: 'right', width: 110, frozen: true, formatter: fmtInt },
+      { title: 'TOI',          field: 'TOI',                       sorter: 'number', hozAlign: 'right', width: 90,  formatter: fmtNum(2) },
+      { title: 'Period [d]',   field: 'Period',                    sorter: 'number', hozAlign: 'right', width: 105, formatter: fmtNum(4) },
+      { title: 'Phase [d]',    field: 'Phase',                     sorter: 'number', hozAlign: 'right', width: 105, formatter: fmtNum(4) },
+      { title: 'τ [d]',         field: 'Tau',                       sorter: 'number', hozAlign: 'right', width: 90,  formatter: fmtNum(4) },
+      { title: 'SNR',          field: 'SNR',                       sorter: 'number', hozAlign: 'right', width: 95,  formatter: fmtNum(2) },
+      { title: 'Rₚ [R☉]',      field: 'Radius_planet',             sorter: 'number', hozAlign: 'right', width: 90,  formatter: fmtNum(3) },
+      { title: 'M★ [M☉]',      field: 'Mass',                      sorter: 'number', hozAlign: 'right', width: 80,  formatter: fmtNum(2) },
+      { title: 'R★ [R☉]',      field: 'Radius',                    sorter: 'number', hozAlign: 'right', width: 80,  formatter: fmtNum(2) },
+      { title: 'log g',        field: 'logg',                      sorter: 'number', hozAlign: 'right', width: 75,  formatter: fmtNum(2) },
+      { title: '[Fe/H]',       field: 'FEH',                       sorter: 'number', hozAlign: 'right', width: 80,  formatter: fmtNum(2) },
+      { title: 'Tₑff [K]',      field: 'Teff',                      sorter: 'number', hozAlign: 'right', width: 80,  formatter: fmtNum(0) },
+      { title: 'Disp.',        field: 'Disposition',                                  hozAlign: 'left',  width: 100 },
+      { title: 'N transits',   field: 'Number of Valid Transits',  sorter: 'number', hozAlign: 'right', width: 100, formatter: fmtInt },
+      { title: 'TTVs',         field: 'Has Visible TTVs',          sorter: 'boolean',hozAlign: 'center',width: 60,  formatter: fmtBool },
+      { title: 'log₁₀ p',      field: 'log10(p value)',            sorter: 'number', hozAlign: 'right', width: 95,  formatter: fmtNum(1) },
+      { title: 'μ(null)',      field: 'μ(SNR | null)',             sorter: 'number', hozAlign: 'right', width: 80,  formatter: fmtNum(2) },
+      { title: 'σ(null)',      field: 'σ(SNR | null)',             sorter: 'number', hozAlign: 'right', width: 80,  formatter: fmtNum(2) },
+    ],
+  });
+
+  table.on('rowClick', (e, row) => {
+    const d = row.getData();
+    const img = document.getElementById('plot');
+    img.src = `plots/${d.TIC}/${d.known_idx}.jpg`;
+    img.style.display = 'block';
+    img.alt = `TIC ${d.TIC} planet ${d.known_idx}`;
+    const title = document.getElementById('plot-title');
+    title.classList.remove('placeholder');
+    title.innerHTML =
+      `TIC ${d.TIC} &middot; TOI ${d.TOI} &middot; planet ${d.known_idx + 1} &middot; ` +
+      `P=${(+d.Period).toFixed(4)} d, ϕ=${(+d.Phase).toFixed(4)} d, τ=${(+d.Tau).toFixed(4)} d &middot; ` +
+      `SNR=${(+d.SNR).toFixed(1)} &middot; ${d.Disposition}`;
+  });
+
+  const filterInput = document.getElementById('filter');
+  filterInput.addEventListener('input', () => {
+    const v = filterInput.value.trim();
+    if (!v) { table.clearFilter(true); return; }
+    table.setFilter([
+      [
+        { field: 'TIC',         type: 'like', value: v },
+        { field: 'TOI',         type: 'like', value: v },
+        { field: 'Disposition', type: 'like', value: v },
+      ],
+    ]);
+  });
+}
+
+main().catch(err => {
+  document.getElementById('meta').textContent = 'Error: ' + err.message;
+  console.error(err);
+});
+</script>
+</body>
+</html>
