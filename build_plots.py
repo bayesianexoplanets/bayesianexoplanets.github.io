@@ -44,9 +44,9 @@ def load_npz_params(path):
     try:
         z = np.load(path, allow_pickle=True)
         p = z['params']
-        return float(p[0]), float(p[1]), float(p[2])
+        return float(p[0]), float(p[1]), float(p[2]), float(z['snr'])
     except Exception:
-        return None, None, None
+        return None, None, None, None
 
 
 def _list_known_indices(TIC):
@@ -64,13 +64,14 @@ def _list_known_indices(TIC):
 
 
 def _load_candidate_csv(path):
-    """Return list of (event_id, period, phase, tau). Tab-separated, 27 cols."""
+    """Return list of (event_id, period, phase, tau, snr). Tab-separated, 27 cols."""
     try:
         df = pd.read_csv(path, sep='\t')
         return list(zip(df['event_id'].astype(int).tolist(),
                         df['period'].tolist(),
                         df['phase'].tolist(),
-                        df['tau'].tolist()))
+                        df['tau'].tolist(),
+                        df['SNR'].tolist()))
     except Exception:
         return []
 
@@ -80,14 +81,14 @@ def find_source(TIC, i, P_csv, phi_csv):
     # 1a. FullRun known-planet at j = i, full (P, ϕ) match
     npz_i = f"{FULL}/known_planets/{TIC}_{i}.npz"
     png_i = f"{FULL}/plots/{TIC}/{i}.png"
-    P_src_i = phi_src_i = tau_src_i = None
+    P_src_i = phi_src_i = tau_src_i = snr_src_i = None
     if os.path.isfile(npz_i) and os.path.isfile(png_i):
-        P_src_i, phi_src_i, tau_src_i = load_npz_params(npz_i)
+        P_src_i, phi_src_i, tau_src_i, snr_src_i = load_npz_params(npz_i)
         if P_src_i is not None:
             ok, pd_, phd_ = check_match(P_csv, phi_csv, P_src_i, phi_src_i)
             if ok:
                 return dict(src=png_i, src_type='FullRun_known_same_idx',
-                            P_src=P_src_i, phi_src=phi_src_i, tau_src=tau_src_i,
+                            P_src=P_src_i, phi_src=phi_src_i, tau_src=tau_src_i, snr_src=snr_src_i,
                             p_drift=pd_, ph_drift=phd_)
 
     # 2. FullRun known-planet at any other j (full match)
@@ -97,12 +98,12 @@ def find_source(TIC, i, P_csv, phi_csv):
         npz_j = f"{FULL}/known_planets/{TIC}_{j}.npz"
         png_j = f"{FULL}/plots/{TIC}/{j}.png"
         if not os.path.isfile(png_j): continue
-        P_src, phi_src, tau_src = load_npz_params(npz_j)
+        P_src, phi_src, tau_src, snr_src = load_npz_params(npz_j)
         if P_src is None: continue
         ok, pd_, phd_ = check_match(P_csv, phi_csv, P_src, phi_src)
         if ok and (best is None or pd_ < best['p_drift']):
             best = dict(src=png_j, src_type='FullRun_known_other_idx',
-                        P_src=P_src, phi_src=phi_src, tau_src=tau_src,
+                        P_src=P_src, phi_src=phi_src, tau_src=tau_src, snr_src=snr_src,
                         p_drift=pd_, ph_drift=phd_, matched_j=j)
     if best is not None:
         return best
@@ -111,14 +112,14 @@ def find_source(TIC, i, P_csv, phi_csv):
     cand_csv = f"{RECOV}/candidates/batch0/{TIC}.0.csv"
     if os.path.isfile(cand_csv):
         best = None
-        for event_id, P_src, phi_src, tau_src in _load_candidate_csv(cand_csv):
+        for event_id, P_src, phi_src, tau_src, snr_src in _load_candidate_csv(cand_csv):
             ok, pd_, phd_ = check_match(P_csv, phi_csv, P_src, phi_src)
             if not ok: continue
             png = f"{RECOV}/plots/{TIC}/{event_id}_0.png"
             if not os.path.isfile(png): continue
             if best is None or pd_ < best['p_drift']:
                 best = dict(src=png, src_type='RecoveryRun_cand',
-                            P_src=P_src, phi_src=phi_src, tau_src=tau_src,
+                            P_src=P_src, phi_src=phi_src, tau_src=tau_src, snr_src=snr_src,
                             p_drift=pd_, ph_drift=phd_, matched_j=event_id)
         if best is not None:
             return best
@@ -127,28 +128,28 @@ def find_source(TIC, i, P_csv, phi_csv):
     cand_csv = f"{FULL}/candidates/batch0/{TIC}.0.csv"
     if os.path.isfile(cand_csv):
         best = None
-        for event_id, P_src, phi_src, tau_src in _load_candidate_csv(cand_csv):
+        for event_id, P_src, phi_src, tau_src, snr_src in _load_candidate_csv(cand_csv):
             ok, pd_, phd_ = check_match(P_csv, phi_csv, P_src, phi_src)
             if not ok: continue
             png = f"{FULL}/plots/{TIC}/{event_id}_0.png"
             if not os.path.isfile(png): continue
             if best is None or pd_ < best['p_drift']:
                 best = dict(src=png, src_type='FullRun_cand',
-                            P_src=P_src, phi_src=phi_src, tau_src=tau_src,
+                            P_src=P_src, phi_src=phi_src, tau_src=tau_src, snr_src=snr_src,
                             p_drift=pd_, ph_drift=phd_, matched_j=event_id)
         if best is not None:
             return best
 
     # 5. FullRun known-planet at any j, period-only match within 2%.
     # Last resort — catches index swaps and rows where catalog phase/tau are
-    # stale relative to the pipeline's actual fit. Phase/Tau in tois.csv will
-    # be overwritten with the matched NPZ's values.
+    # stale relative to the pipeline's actual fit. Phase/Tau/SNR in tois.csv
+    # will be overwritten with the matched NPZ's values.
     best = None
     for j in _list_known_indices(TIC):
         npz_j = f"{FULL}/known_planets/{TIC}_{j}.npz"
         png_j = f"{FULL}/plots/{TIC}/{j}.png"
         if not os.path.isfile(png_j): continue
-        P_src, phi_src, tau_src = load_npz_params(npz_j)
+        P_src, phi_src, tau_src, snr_src = load_npz_params(npz_j)
         if P_src is None: continue
         pdrift = abs(P_csv - P_src) / P_csv
         if pdrift >= 0.02: continue
@@ -158,7 +159,7 @@ def find_source(TIC, i, P_csv, phi_csv):
                  else 'FullRun_known_other_idx_period_only')
         if best is None or pdrift < best['p_drift']:
             best = dict(src=png_j, src_type=label,
-                        P_src=P_src, phi_src=phi_src, tau_src=tau_src,
+                        P_src=P_src, phi_src=phi_src, tau_src=tau_src, snr_src=snr_src,
                         p_drift=pdrift, ph_drift=phdrift, matched_j=j)
     if best is not None:
         return best
@@ -167,7 +168,7 @@ def find_source(TIC, i, P_csv, phi_csv):
     cand_csv = f"{RECOV}/candidates/batch0/{TIC}.0.csv"
     if os.path.isfile(cand_csv):
         best = None
-        for event_id, P_src, phi_src, tau_src in _load_candidate_csv(cand_csv):
+        for event_id, P_src, phi_src, tau_src, snr_src in _load_candidate_csv(cand_csv):
             if not np.isfinite(P_src) or P_src <= 0: continue
             pdrift = abs(P_csv - P_src) / P_csv
             if pdrift >= 0.02: continue
@@ -177,7 +178,7 @@ def find_source(TIC, i, P_csv, phi_csv):
             phdrift = min(d, P_csv - d) / P_csv
             if best is None or pdrift < best['p_drift']:
                 best = dict(src=png, src_type='RecoveryRun_cand_period_only',
-                            P_src=P_src, phi_src=phi_src, tau_src=tau_src,
+                            P_src=P_src, phi_src=phi_src, tau_src=tau_src, snr_src=snr_src,
                             p_drift=pdrift, ph_drift=phdrift, matched_j=event_id)
         if best is not None:
             return best
@@ -186,7 +187,7 @@ def find_source(TIC, i, P_csv, phi_csv):
     cand_csv = f"{FULL}/candidates/batch0/{TIC}.0.csv"
     if os.path.isfile(cand_csv):
         best = None
-        for event_id, P_src, phi_src, tau_src in _load_candidate_csv(cand_csv):
+        for event_id, P_src, phi_src, tau_src, snr_src in _load_candidate_csv(cand_csv):
             if not np.isfinite(P_src) or P_src <= 0: continue
             pdrift = abs(P_csv - P_src) / P_csv
             if pdrift >= 0.02: continue
@@ -196,7 +197,7 @@ def find_source(TIC, i, P_csv, phi_csv):
             phdrift = min(d, P_csv - d) / P_csv
             if best is None or pdrift < best['p_drift']:
                 best = dict(src=png, src_type='FullRun_cand_period_only',
-                            P_src=P_src, phi_src=phi_src, tau_src=tau_src,
+                            P_src=P_src, phi_src=phi_src, tau_src=tau_src, snr_src=snr_src,
                             p_drift=pdrift, ph_drift=phdrift, matched_j=event_id)
         if best is not None:
             return best
@@ -225,6 +226,7 @@ def process_row(args):
                     P_csv=P_csv, P_src=m['P_src'],
                     phi_csv=phi_csv, phi_src=m['phi_src'],
                     tau_src=m.get('tau_src'),
+                    snr_src=m.get('snr_src'),
                     p_drift=m['p_drift'], ph_drift=m['ph_drift'],
                     out=out_path, size_kb=size_kb)
     except Exception as e:
@@ -269,33 +271,44 @@ def main(limit=None, nproc=32):
         print(f"max p_drift: {mdf['p_drift'].max():.4%}, "
               f"max ph_drift: {mdf['ph_drift'].max():.4%}", flush=True)
 
-    # Update tois.csv Phase/Tau for rows matched via period-only fallback
+    # Reconcile tois.csv with the plots that the website actually shows:
+    #  - period-only matches: overwrite Period/Phase/Tau (catalog ephemeris was stale)
+    #  - ALL matches: overwrite SNR with the plot's source SNR so the table value
+    #    equals the SNR printed in the linked plot.
     if limit is None:
-        update_mask = mdf['src_type'].isin([
+        backup = CSV + '.preplot_sync'
+        if not os.path.isfile(backup):
+            import shutil
+            shutil.copy(CSV, backup)
+            print(f"\nbacked up tois.csv to {backup}", flush=True)
+
+        base = pd.read_csv(CSV)
+        base['known_idx'] = base.groupby('TIC').cumcount()
+
+        period_only = {
             'FullRun_known_same_idx_period_only',
             'FullRun_known_other_idx_period_only',
             'RecoveryRun_cand_period_only',
             'FullRun_cand_period_only',
-        ])
-        n_upd = update_mask.sum()
-        if n_upd > 0:
-            print(f"\nupdating tois.csv Phase/Tau for {n_upd} period-only-matched rows", flush=True)
-            backup = CSV + '.prephase_update'
-            if not os.path.isfile(backup):
-                import shutil
-                shutil.copy(CSV, backup)
-                print(f"backed up tois.csv to {backup}", flush=True)
-            base = pd.read_csv(CSV)
-            base['known_idx'] = base.groupby('TIC').cumcount()
-            upd = mdf[update_mask][['TIC', 'known_idx', 'P_src', 'phi_src', 'tau_src']]
-            merged = base.merge(upd, on=['TIC', 'known_idx'], how='left')
-            mask = merged['phi_src'].notna()
-            merged.loc[mask, 'Period'] = merged.loc[mask, 'P_src']
-            merged.loc[mask, 'Phase']  = merged.loc[mask, 'phi_src']
-            merged.loc[mask, 'Tau']    = merged.loc[mask, 'tau_src']
-            merged = merged.drop(columns=['known_idx', 'P_src', 'phi_src', 'tau_src'])
-            merged.to_csv(CSV, index=False)
-            print(f"wrote updated tois.csv ({mask.sum()} rows changed)", flush=True)
+        }
+        po = mdf[mdf['src_type'].isin(period_only)][['TIC', 'known_idx', 'P_src', 'phi_src', 'tau_src']]
+        merged = base.merge(po, on=['TIC', 'known_idx'], how='left')
+        pmask = merged['phi_src'].notna()
+        merged.loc[pmask, 'Period'] = merged.loc[pmask, 'P_src']
+        merged.loc[pmask, 'Phase']  = merged.loc[pmask, 'phi_src']
+        merged.loc[pmask, 'Tau']    = merged.loc[pmask, 'tau_src']
+        merged = merged.drop(columns=['P_src', 'phi_src', 'tau_src'])
+
+        snr = mdf[['TIC', 'known_idx', 'snr_src']]
+        merged = merged.merge(snr, on=['TIC', 'known_idx'], how='left')
+        smask = merged['snr_src'].notna()
+        if 'SNR' in merged.columns:
+            merged.loc[smask, 'SNR'] = merged.loc[smask, 'snr_src']
+        merged = merged.drop(columns=['known_idx', 'snr_src'])
+
+        merged.to_csv(CSV, index=False)
+        print(f"reconciled tois.csv: {pmask.sum()} period-only ephemerides, "
+              f"{smask.sum()} SNRs synced to plot source", flush=True)
 
 
 if __name__ == "__main__":
