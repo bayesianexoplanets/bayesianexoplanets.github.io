@@ -5,11 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>TESS Exoplanet Catalog</title>
 <link href="https://unpkg.com/tabulator-tables@6.3.1/dist/css/tabulator.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" rel="stylesheet">
 <script src="https://unpkg.com/tabulator-tables@6.3.1/dist/js/tabulator.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/marked@12/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
 <style>
-  :root {
-    --bg: #fafafa; --panel: #ffffff; --border: #ddd; --muted: #6b7280; --accent: #2563eb;
-  }
+  :root { --bg:#fafafa; --panel:#fff; --border:#ddd; --muted:#6b7280; --accent:#2563eb; }
   * { box-sizing: border-box; }
   body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: #111; }
   .container { display: flex; flex-direction: column; height: 100vh; }
@@ -20,16 +22,28 @@
   nav a { color: #cbd5e1; cursor: pointer; font-size: 0.88rem; text-decoration: none; padding: 2px 0; border-bottom: 2px solid transparent; white-space: nowrap; }
   nav a:hover { color: #fff; }
   nav a.active { color: #fff; font-weight: 600; border-bottom-color: #fff; }
-  .intro { padding: 12px 24px; background: #fff; border-bottom: 1px solid var(--border); font-size: 0.92rem; line-height: 1.55; color: #1f2937; max-width: 1100px; }
-  .intro a { color: var(--accent); text-decoration: none; }
-  .intro a:hover { text-decoration: underline; }
-  .intro code { background: #f1f5f9; padding: 1px 5px; border-radius: 3px; font-size: 0.88em; }
+  /* per-page markdown text */
+  #pagetext { flex: 0 0 auto; max-height: 42vh; overflow: auto; padding: 14px 24px; background: #fff;
+              border-bottom: 1px solid var(--border); font-size: 0.95rem; line-height: 1.6; color: #1f2937; }
+  .container.text-only #pagetext { flex: 1 1 auto; max-height: none; }
+  #pagetext .md { max-width: 900px; }
+  #pagetext.empty { display: none; }
+  #pagetext h1 { font-size: 1.5rem; margin: 0.2em 0 0.4em; }
+  #pagetext h2 { font-size: 1.2rem; margin: 0.8em 0 0.3em; }
+  #pagetext h3 { font-size: 1.05rem; margin: 0.7em 0 0.3em; }
+  #pagetext p { margin: 0.5em 0; }
+  #pagetext a { color: var(--accent); text-decoration: none; }
+  #pagetext a:hover { text-decoration: underline; }
+  #pagetext code { background: #f1f5f9; padding: 1px 5px; border-radius: 3px; font-size: 0.88em; }
+  #pagetext pre { background: #f1f5f9; padding: 10px 12px; border-radius: 6px; overflow: auto; }
+  #pagetext img { max-width: 100%; }
+  #pagetext table { border-collapse: collapse; }
+  #pagetext th, #pagetext td { border: 1px solid var(--border); padding: 4px 8px; }
   #toolbar { padding: 8px 20px; background: #f3f4f6; border-bottom: 1px solid var(--border); display: flex; gap: 12px; align-items: center; font-size: 0.85rem; }
   #toolbar input { padding: 4px 10px; font-size: 0.85rem; width: 280px; border: 1px solid var(--border); border-radius: 4px; }
   #toolbar .hint { color: var(--muted); }
   #table-wrap { flex: 1 1 auto; min-height: 200px; padding: 0 20px; overflow: hidden; }
   #table { height: 100%; }
-  #placeholder { flex: 1 1 auto; display: none; align-items: center; justify-content: center; color: #9ca3af; font-size: 1rem; }
   #plot-panel { flex: 0 0 auto; position: relative; padding: 10px 20px 16px; background: var(--panel); border-top: 1px solid var(--border); display: none; }
   #plot-panel.visible { display: block; }
   #plot-panel h2 { margin: 0 32px 6px 0; font-size: 0.95rem; font-weight: 500; color: #374151; }
@@ -45,28 +59,17 @@
 </style>
 </head>
 <body>
-<div class="container">
+<div class="container" id="container">
   <header>
     <h1 id="page-title">TESS Exoplanet Catalog</h1>
     <nav id="nav"></nav>
   </header>
-  <section class="intro" id="intro" style="display:none">
-    Here we compiled a list of all exoplanet candidates, independently verified using our pipeline
-    (we recovered ≳&nbsp;99% at SNR&nbsp;&gt;&nbsp;20 and 95% of all candidates), which were already
-    known from the TESS Objects of Interest (TOI) catalog. For consistency we used only the
-    <code>SPOC</code> flux and focused on planets with at least three transits, so that we could
-    make use of the statistical validation tools developed in
-    <a href="https://arxiv.org/abs/2407.17565" target="_blank" rel="noopener">Robnik et al. (2024)</a>.
-    This limited us to consider ∼&nbsp;80% of the data, or about 5,000 stars. We report the p-value
-    (based on the Null Signal Template (NST) developed in the aforementioned paper) for each
-    planetary candidate.
-  </section>
+  <div id="pagetext"></div>
   <div id="toolbar" style="display:none">
     <input id="filter" placeholder="Filter TIC or TOI…" autocomplete="off">
     <span class="hint">Click any row to see its diagnostic plots · Click column headers to sort</span>
   </div>
   <div id="table-wrap" style="display:none"><div id="table"></div></div>
-  <div id="placeholder">Coming soon.</div>
   <div id="plot-panel">
     <button id="plot-close" type="button" aria-label="Close plot">×</button>
     <h2 id="plot-title"></h2>
@@ -75,30 +78,30 @@
 </div>
 
 <script>
-// ---- page definitions ----
+// Each page renders its own markdown file (md) as text. Table pages also load a CSV.
 const PAGES = [
-  { key: 'overview',     title: 'Overview',                type: 'placeholder' },
-  { key: 'tess',         title: 'TESS Exoplanet Catalog',  type: 'table', csv: 'tois.csv',     intro: true,
-    plot: d => `plots/${d.TIC}/${d.known_idx}.jpg`,
-    ptitle: d => `TIC ${d.TIC} · TOI ${d.TOI} · planet ${d.known_idx + 1} · P=${(+d.Period).toFixed(4)} d, ϕ=${(+d.Phase).toFixed(4)} d, τ=${(+d.Tau).toFixed(4)} d · SNR=${(+d.SNR).toFixed(1)}` },
-  { key: 'tessnew',      title: 'TESS New Candidates',     type: 'table', csv: 'tois_new.csv', intro: false,
-    plot: d => `plots_new/${d.TIC}/${d._cand_idx}.jpg`,
-    ptitle: d => `TIC ${d.TIC} · candidate idx ${d._cand_idx} · P=${(+d.Period).toFixed(4)} d, ϕ=${(+d.Phase).toFixed(4)} d, τ=${(+d.Tau).toFixed(4)} d · SNR=${(+d.SNR).toFixed(1)}` },
-  { key: 'keplercat',    title: 'Kepler Exoplanet Catalog', type: 'placeholder' },
-  { key: 'keplernew',    title: 'Kepler New Candidates',    type: 'placeholder' },
+  { key: 'overview',  title: 'Overview',                 md: 'overview.md',       type: 'placeholder' },
+  { key: 'tess',      title: 'TESS Exoplanet Catalog',   md: 'tess.md',           type: 'table', csv: 'tois.csv',
+    plot:  d => `plots/${d.TIC}/${d.known_idx}.jpg`,
+    ptitle:d => `TIC ${d.TIC} · TOI ${d.TOI} · planet ${d.known_idx + 1} · P=${(+d.Period).toFixed(4)} d, ϕ=${(+d.Phase).toFixed(4)} d, τ=${(+d.Tau).toFixed(4)} d · SNR=${(+d.SNR).toFixed(1)}` },
+  { key: 'tessnew',   title: 'TESS New Candidates',      md: 'tess_new.md',       type: 'table', csv: 'tois_new.csv',
+    plot:  d => `plots_new/${d.TIC}/${d._cand_idx}.jpg`,
+    ptitle:d => `TIC ${d.TIC} · candidate idx ${d._cand_idx} · P=${(+d.Period).toFixed(4)} d, ϕ=${(+d.Phase).toFixed(4)} d, τ=${(+d.Tau).toFixed(4)} d · SNR=${(+d.SNR).toFixed(1)}` },
+  { key: 'keplercat', title: 'Kepler Exoplanet Catalog', md: 'kepler_catalog.md', type: 'placeholder' },
+  { key: 'keplernew', title: 'Kepler New Candidates',    md: 'kepler_new.md',     type: 'placeholder' },
 ];
 
 const COLUMNS = [
-  { title: 'TIC',        field: 'TIC',                       sorter: 'number', hozAlign: 'right', width: 110, frozen: true, formatter: fmtInt },
-  { title: 'TOI',        field: 'TOI',                       sorter: 'number', hozAlign: 'right', width: 90,  formatter: fmtNum(2) },
-  { title: 'Period [d]', field: 'Period',                    sorter: 'number', hozAlign: 'right', width: 105, formatter: fmtNum(4) },
-  { title: 'Phase [d]',  field: 'Phase',                     sorter: 'number', hozAlign: 'right', width: 105, formatter: fmtNum(4) },
-  { title: 'τ [d]',       field: 'Tau',                       sorter: 'number', hozAlign: 'right', width: 90,  formatter: fmtNum(4) },
-  { title: 'SNR',        field: 'SNR',                       sorter: 'number', hozAlign: 'right', width: 95,  formatter: fmtNum(2) },
-  { title: 'N transits', field: 'Number of Valid Transits',  sorter: 'number', hozAlign: 'right', width: 100, formatter: fmtInt },
-  { title: 'log₁₀ p',    field: 'log10(p value)',            sorter: 'number', hozAlign: 'right', width: 95,  formatter: fmtNum(1) },
-  { title: 'μ(null)',    field: 'μ(SNR | null)',             sorter: 'number', hozAlign: 'right', width: 80,  formatter: fmtNum(2) },
-  { title: 'σ(null)',    field: 'σ(SNR | null)',             sorter: 'number', hozAlign: 'right', width: 80,  formatter: fmtNum(2) },
+  { title: 'TIC',        field: 'TIC',                      sorter: 'number', hozAlign: 'right', width: 110, frozen: true, formatter: fmtInt },
+  { title: 'TOI',        field: 'TOI',                      sorter: 'number', hozAlign: 'right', width: 90,  formatter: fmtNum(2) },
+  { title: 'Period [d]', field: 'Period',                   sorter: 'number', hozAlign: 'right', width: 105, formatter: fmtNum(4) },
+  { title: 'Phase [d]',  field: 'Phase',                    sorter: 'number', hozAlign: 'right', width: 105, formatter: fmtNum(4) },
+  { title: 'τ [d]',       field: 'Tau',                      sorter: 'number', hozAlign: 'right', width: 90,  formatter: fmtNum(4) },
+  { title: 'SNR',        field: 'SNR',                      sorter: 'number', hozAlign: 'right', width: 95,  formatter: fmtNum(2) },
+  { title: 'N transits', field: 'Number of Valid Transits', sorter: 'number', hozAlign: 'right', width: 100, formatter: fmtInt },
+  { title: 'log₁₀ p',    field: 'log10(p value)',           sorter: 'number', hozAlign: 'right', width: 95,  formatter: fmtNum(1) },
+  { title: 'μ(null)',    field: 'μ(SNR | null)',            sorter: 'number', hozAlign: 'right', width: 80,  formatter: fmtNum(2) },
+  { title: 'σ(null)',    field: 'σ(SNR | null)',            sorter: 'number', hozAlign: 'right', width: 80,  formatter: fmtNum(2) },
 ];
 
 function parseCSV(text) {
@@ -126,8 +129,9 @@ function fmtNum(p) {
 }
 function fmtInt(cell) { const v = cell.getValue(); return v == null ? '' : Number(v).toLocaleString(); }
 
-// ---- NST null-distribution plot (sky-blue Gaussian filled to x-axis + red
-// dashed candidate line). Adaptive y-limits (0, 1.1*max); 13:8 proportions. ----
+// NST null-distribution: sky-blue Gaussian filled to x-axis + red dashed candidate
+// line. ylim = (0, 1.1*max). x-sampling: 1000 pts in +/-3 sigma, 500 in the
+// 3..5 sigma shell, 100 in the rest (to plot bounds), + the candidate point.
 function drawNull(canvas, mu, sigma, snr) {
   const W = 1300, H = 800, ctx = canvas.getContext('2d');
   canvas.width = W; canvas.height = H;
@@ -141,38 +145,32 @@ function drawNull(canvas, mu, sigma, snr) {
   let lo = Math.min(mu - 5 * sigma, snr), hi = Math.max(mu + 5 * sigma, snr);
   const pad = 0.08 * (hi - lo) || 1; lo -= pad; hi += pad;
   const X = x => px0 + (x - lo) / (hi - lo) * (px1 - px0);
-  const g = x => Math.exp(-0.5 * ((x - mu) / sigma) ** 2);   // peak = 1
-  const YMAX = 1.1;                                          // ylim = (0, 1.1*max)
-  const Y = y => py1 - (y / YMAX) * (py1 - py0);
-  // adaptive x-sampling: ~250 points in the 3-sigma core, ~50 in the tails,
-  // plus the exact candidate location.
-  const a = Math.max(lo, mu - 3 * sigma), b = Math.min(hi, mu + 3 * sigma);
+  const g = x => Math.exp(-0.5 * ((x - mu) / sigma) ** 2);
+  const Y = y => py1 - (y / 1.1) * (py1 - py0);
+
+  const c0 = Math.max(lo, mu - 3 * sigma), c1 = Math.min(hi, mu + 3 * sigma);
+  const f0 = Math.max(lo, mu - 5 * sigma), f1 = Math.min(hi, mu + 5 * sigma);
   const seg = (x0, x1, n, arr) => { if (x1 > x0) for (let i = 0; i <= n; i++) arr.push(x0 + (x1 - x0) * i / n); };
   let xs = [];
-  seg(lo, a, 25, xs); seg(a, b, 250, xs); seg(b, hi, 25, xs);
+  seg(lo, f0, 50, xs); seg(f0, c0, 250, xs); seg(c0, c1, 1000, xs); seg(c1, f1, 250, xs); seg(f1, hi, 50, xs);
   xs.push(snr, lo, hi);
   xs = [...new Set(xs)].filter(x => x >= lo && x <= hi).sort((p, q) => p - q);
-  // fill
+
   ctx.beginPath(); ctx.moveTo(X(lo), py1);
   for (const x of xs) ctx.lineTo(X(x), Y(g(x)));
   ctx.lineTo(X(hi), py1); ctx.closePath();
   ctx.fillStyle = 'rgba(135,206,235,0.55)'; ctx.fill();
-  // curve
   ctx.beginPath();
   xs.forEach((x, i) => { const xx = X(x), yy = Y(g(x)); i ? ctx.lineTo(xx, yy) : ctx.moveTo(xx, yy); });
   ctx.strokeStyle = '#3a9bd5'; ctx.lineWidth = 3; ctx.stroke();
-  // candidate line
   ctx.beginPath(); ctx.setLineDash([12, 8]); ctx.strokeStyle = '#d62728'; ctx.lineWidth = 3;
   ctx.moveTo(X(snr), py0); ctx.lineTo(X(snr), py1); ctx.stroke(); ctx.setLineDash([]);
-  // axes
   ctx.strokeStyle = '#333'; ctx.lineWidth = 2;
   ctx.beginPath(); ctx.moveTo(px0, py0); ctx.lineTo(px0, py1); ctx.lineTo(px1, py1); ctx.stroke();
-  // x ticks + label
   ctx.fillStyle = '#333'; ctx.lineWidth = 1.5; ctx.font = '26px sans-serif'; ctx.textAlign = 'center';
   const dec = (hi - lo) > 20 ? 0 : 1;
   for (let i = 0; i <= 6; i++) { const x = lo + (hi - lo) * i / 6; ctx.beginPath(); ctx.moveTo(X(x), py1); ctx.lineTo(X(x), py1 + 9); ctx.stroke(); ctx.fillText(x.toFixed(dec), X(x), py1 + 36); }
   ctx.font = '30px sans-serif'; ctx.fillText('SNR', (px0 + px1) / 2, H - 26);
-  // legend
   const lw = 360, lh = 92, lx = px1 - lw - 14, ly = py0 + 14;
   ctx.fillStyle = 'rgba(255,255,255,0.88)'; ctx.fillRect(lx, ly, lw, lh);
   ctx.strokeStyle = '#ccc'; ctx.lineWidth = 1; ctx.strokeRect(lx, ly, lw, lh);
@@ -187,19 +185,39 @@ function drawNull(canvas, mu, sigma, snr) {
 
 // ---- app ----
 const els = {};
-let table = null, currentPage = null;
-const cache = {};
+let table = null;
+const cacheCSV = {}, cacheMD = {};
 
 async function loadData(page) {
-  if (cache[page.key]) return cache[page.key];
-  const resp = await fetch(page.csv);
-  const rows = parseCSV(await resp.text());
-  if (page.key === 'tess') {  // assign known_idx per TIC in CSV row order
+  if (cacheCSV[page.key]) return cacheCSV[page.key];
+  const rows = parseCSV(await (await fetch(page.csv)).text());
+  if (page.key === 'tess') {
     const counter = new Map();
     rows.forEach(r => { const k = counter.get(r.TIC) ?? 0; r.known_idx = k; counter.set(r.TIC, k + 1); });
   }
-  cache[page.key] = rows;
+  cacheCSV[page.key] = rows;
   return rows;
+}
+
+async function loadPageText(page) {
+  const el = els.pagetext;
+  if (!page.md) { el.classList.add('empty'); el.innerHTML = ''; return; }
+  if (cacheMD[page.key] === undefined) {
+    try { const r = await fetch(page.md); cacheMD[page.key] = r.ok ? await r.text() : ''; }
+    catch (e) { cacheMD[page.key] = ''; }
+  }
+  const md = cacheMD[page.key];
+  if (!md.trim()) { el.classList.add('empty'); el.innerHTML = ''; return; }
+  el.classList.remove('empty');
+  el.innerHTML = '<div class="md">' + marked.parse(md) + '</div>';
+  if (window.renderMathInElement) renderMathInElement(el, {
+    delimiters: [
+      { left: '$$', right: '$$', display: true },
+      { left: '$', right: '$', display: false },
+      { left: '\\(', right: '\\)', display: false },
+      { left: '\\[', right: '\\]', display: true },
+    ], throwOnError: false,
+  });
 }
 
 function showPlot(page, d) {
@@ -211,73 +229,63 @@ function showPlot(page, d) {
 }
 
 async function renderTablePage(page) {
-  els.intro.style.display = page.intro ? 'block' : 'none';
+  els.container.classList.remove('text-only');
   els.toolbar.style.display = 'flex';
   els.tableWrap.style.display = 'block';
-  els.placeholder.style.display = 'none';
   els.plotPanel.classList.remove('visible');
   els.filter.value = '';
   if (table) { table.destroy(); table = null; }
-
   const rows = await loadData(page);
   table = new Tabulator('#table', {
     data: rows, height: '100%', layout: 'fitDataTable',
     selectableRows: 1, movableColumns: true,
-    initialSort: [{ column: 'SNR', dir: 'desc' }],
-    columns: COLUMNS,
+    initialSort: [{ column: 'SNR', dir: 'desc' }], columns: COLUMNS,
   });
   table.on('rowClick', (e, row) => showPlot(page, row.getData()));
 }
 
 function renderPlaceholder() {
-  els.intro.style.display = 'none';
+  els.container.classList.add('text-only');
   els.toolbar.style.display = 'none';
   els.tableWrap.style.display = 'none';
   els.plotPanel.classList.remove('visible');
-  els.placeholder.style.display = 'flex';
   if (table) { table.destroy(); table = null; }
 }
 
 function switchPage(key) {
   const page = PAGES.find(p => p.key === key) || PAGES.find(p => p.key === 'tess');
-  currentPage = page;
   document.getElementById('page-title').textContent = page.title;
   document.title = page.title;
   [...els.nav.children].forEach(a => a.classList.toggle('active', a.dataset.key === page.key));
   if (location.hash !== '#' + page.key) location.hash = page.key;
-  if (page.type === 'table') renderTablePage(page);
-  else renderPlaceholder();
+  loadPageText(page);
+  if (page.type === 'table') renderTablePage(page); else renderPlaceholder();
 }
 
 function main() {
+  els.container = document.getElementById('container');
   els.nav = document.getElementById('nav');
-  els.intro = document.getElementById('intro');
+  els.pagetext = document.getElementById('pagetext');
   els.toolbar = document.getElementById('toolbar');
   els.filter = document.getElementById('filter');
   els.tableWrap = document.getElementById('table-wrap');
-  els.placeholder = document.getElementById('placeholder');
   els.plotPanel = document.getElementById('plot-panel');
   els.plotImg = document.getElementById('plot');
   els.plotTitle = document.getElementById('plot-title');
   els.nst = document.getElementById('nst');
 
-  // nav links
   PAGES.forEach(p => {
     const a = document.createElement('a');
     a.textContent = p.title; a.dataset.key = p.key; a.href = '#' + p.key;
     a.addEventListener('click', ev => { ev.preventDefault(); switchPage(p.key); });
     els.nav.appendChild(a);
   });
-
-  // filter
   els.filter.addEventListener('input', () => {
     if (!table) return;
     const v = els.filter.value.trim();
     if (!v) { table.clearFilter(true); return; }
     table.setFilter([[{ field: 'TIC', type: 'like', value: v }, { field: 'TOI', type: 'like', value: v }]]);
   });
-
-  // plot panel close
   document.getElementById('plot-close').addEventListener('click', () => {
     els.plotPanel.classList.remove('visible');
     els.plotImg.removeAttribute('src');
@@ -287,7 +295,6 @@ function main() {
     if (e.key === 'Escape' && els.plotPanel.classList.contains('visible')) document.getElementById('plot-close').click();
   });
   window.addEventListener('hashchange', () => switchPage(location.hash.slice(1)));
-
   switchPage(location.hash.slice(1) || 'tess');
 }
 
