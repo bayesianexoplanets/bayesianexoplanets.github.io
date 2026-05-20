@@ -34,8 +34,10 @@
   #plot-panel h2 { margin: 0 32px 6px 0; font-size: 0.95rem; font-weight: 500; color: #374151; }
   #plot-close { position: absolute; top: 6px; right: 10px; width: 28px; height: 28px; line-height: 24px; text-align: center; border: 1px solid var(--border); border-radius: 50%; background: #ffffff; color: #4b5563; cursor: pointer; font-size: 1rem; padding: 0; }
   #plot-close:hover { background: #fee2e2; color: #b91c1c; border-color: #fca5a5; }
-  #plot-wrap { display: flex; gap: 16px; align-items: flex-start; }
-  #plot { max-width: 100%; max-height: 380px; border: 1px solid var(--border); background: #fff; }
+  #plot-wrap { display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap; }
+  #plot { height: 380px; width: auto; max-width: 100%; border: 1px solid var(--border); background: #fff; }
+  #nst  { height: 380px; aspect-ratio: 13 / 8; border: 1px solid var(--border); background: #fff; }
+  #nst.hidden { display: none; }
   .tabulator-row.tabulator-selected { background: #dbeafe !important; }
   .tabulator-row.tabulator-selectable:hover { background: #e0e7ff !important; cursor: pointer; }
   .tabulator { font-size: 0.82rem; }
@@ -66,7 +68,7 @@
   <div id="plot-panel">
     <button id="plot-close" type="button" aria-label="Close plot">×</button>
     <h2 id="plot-title"></h2>
-    <div id="plot-wrap"><img id="plot" alt=""></div>
+    <div id="plot-wrap"><img id="plot" alt=""><canvas id="nst"></canvas></div>
   </div>
 </div>
 
@@ -116,8 +118,61 @@ function fmtInt(cell) {
   return v == null ? '' : Number(v).toLocaleString();
 }
 
-function fmtBool(cell) {
-  return cell.getValue() ? '✓' : '';
+// Render the NST null-distribution plot for a row: sky-blue Gaussian N(mu,sigma)
+// filled to the x-axis, red dashed line at the candidate SNR. Same proportions
+// (13:8) as the transit plot. Drawn at 1300x800 backing for crisp text.
+function drawNull(canvas, mu, sigma, snr) {
+  const W = 1300, H = 800, ctx = canvas.getContext('2d');
+  canvas.width = W; canvas.height = H;
+  ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = '#111'; ctx.textAlign = 'center'; ctx.font = '30px sans-serif';
+  ctx.fillText('Null distribution vs. candidate SNR', W / 2, 42);
+
+  if (mu == null || sigma == null || !isFinite(mu) || !isFinite(sigma) || sigma <= 0) {
+    ctx.fillStyle = '#888'; ctx.font = 'italic 30px sans-serif';
+    ctx.fillText('No null-simulation (NST) data for this candidate', W / 2, H / 2);
+    return;
+  }
+
+  const px0 = 80, px1 = W - 40, py0 = 78, py1 = H - 95;
+  let lo = Math.min(mu - 5 * sigma, snr), hi = Math.max(mu + 5 * sigma, snr);
+  const pad = 0.08 * (hi - lo) || 1; lo -= pad; hi += pad;
+  const X = x => px0 + (x - lo) / (hi - lo) * (px1 - px0);
+  const g = x => Math.exp(-0.5 * ((x - mu) / sigma) ** 2);   // peak = 1
+  const Y = y => py1 - (y / 1.15) * (py1 - py0);
+  const N = 400;
+
+  // gaussian fill
+  ctx.beginPath(); ctx.moveTo(X(lo), py1);
+  for (let i = 0; i <= N; i++) { const x = lo + (hi - lo) * i / N; ctx.lineTo(X(x), Y(g(x))); }
+  ctx.lineTo(X(hi), py1); ctx.closePath();
+  ctx.fillStyle = 'rgba(135,206,235,0.55)'; ctx.fill();
+  // gaussian curve
+  ctx.beginPath();
+  for (let i = 0; i <= N; i++) { const x = lo + (hi - lo) * i / N; const xx = X(x), yy = Y(g(x)); i ? ctx.lineTo(xx, yy) : ctx.moveTo(xx, yy); }
+  ctx.strokeStyle = '#3a9bd5'; ctx.lineWidth = 3; ctx.stroke();
+  // candidate line
+  ctx.beginPath(); ctx.setLineDash([12, 8]); ctx.strokeStyle = '#d62728'; ctx.lineWidth = 3;
+  ctx.moveTo(X(snr), py0); ctx.lineTo(X(snr), py1); ctx.stroke(); ctx.setLineDash([]);
+  // axes
+  ctx.strokeStyle = '#333'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(px0, py0); ctx.lineTo(px0, py1); ctx.lineTo(px1, py1); ctx.stroke();
+  // x ticks + label
+  ctx.fillStyle = '#333'; ctx.lineWidth = 1.5; ctx.font = '26px sans-serif'; ctx.textAlign = 'center';
+  const dec = (hi - lo) > 20 ? 0 : 1;
+  for (let i = 0; i <= 6; i++) { const x = lo + (hi - lo) * i / 6; ctx.beginPath(); ctx.moveTo(X(x), py1); ctx.lineTo(X(x), py1 + 9); ctx.stroke(); ctx.fillText(x.toFixed(dec), X(x), py1 + 36); }
+  ctx.font = '30px sans-serif'; ctx.fillText('SNR', (px0 + px1) / 2, H - 26);
+  // legend (white box, top-right)
+  const lw = 360, lh = 92, lx = px1 - lw - 14, ly = py0 + 14;
+  ctx.fillStyle = 'rgba(255,255,255,0.88)'; ctx.fillRect(lx, ly, lw, lh);
+  ctx.strokeStyle = '#ccc'; ctx.lineWidth = 1; ctx.strokeRect(lx, ly, lw, lh);
+  ctx.textAlign = 'left'; ctx.font = '26px sans-serif';
+  ctx.fillStyle = 'rgba(135,206,235,0.55)'; ctx.fillRect(lx + 18, ly + 16, 46, 26);
+  ctx.strokeStyle = '#3a9bd5'; ctx.lineWidth = 2; ctx.strokeRect(lx + 18, ly + 16, 46, 26);
+  ctx.fillStyle = '#222'; ctx.fillText('Null Distribution', lx + 78, ly + 37);
+  ctx.strokeStyle = '#d62728'; ctx.lineWidth = 3; ctx.setLineDash([10, 6]);
+  ctx.beginPath(); ctx.moveTo(lx + 18, ly + 64); ctx.lineTo(lx + 64, ly + 64); ctx.stroke(); ctx.setLineDash([]);
+  ctx.fillStyle = '#222'; ctx.fillText('Candidate', lx + 78, ly + 72);
 }
 
 async function main() {
@@ -151,14 +206,7 @@ async function main() {
       { title: 'Phase [d]',    field: 'Phase',                     sorter: 'number', hozAlign: 'right', width: 105, formatter: fmtNum(4) },
       { title: 'τ [d]',         field: 'Tau',                       sorter: 'number', hozAlign: 'right', width: 90,  formatter: fmtNum(4) },
       { title: 'SNR',          field: 'SNR',                       sorter: 'number', hozAlign: 'right', width: 95,  formatter: fmtNum(2) },
-      { title: 'Rₚ [R☉]',      field: 'Radius_planet',             sorter: 'number', hozAlign: 'right', width: 90,  formatter: fmtNum(3) },
-      { title: 'M★ [M☉]',      field: 'Mass',                      sorter: 'number', hozAlign: 'right', width: 80,  formatter: fmtNum(2) },
-      { title: 'R★ [R☉]',      field: 'Radius',                    sorter: 'number', hozAlign: 'right', width: 80,  formatter: fmtNum(2) },
-      { title: 'log g',        field: 'logg',                      sorter: 'number', hozAlign: 'right', width: 75,  formatter: fmtNum(2) },
-      { title: '[Fe/H]',       field: 'FEH',                       sorter: 'number', hozAlign: 'right', width: 80,  formatter: fmtNum(2) },
-      { title: 'Tₑff [K]',      field: 'Teff',                      sorter: 'number', hozAlign: 'right', width: 80,  formatter: fmtNum(0) },
       { title: 'N transits',   field: 'Number of Valid Transits',  sorter: 'number', hozAlign: 'right', width: 100, formatter: fmtInt },
-      { title: 'TTVs',         field: 'Has Visible TTVs',          sorter: 'boolean',hozAlign: 'center',width: 60,  formatter: fmtBool },
       { title: 'log₁₀ p',      field: 'log10(p value)',            sorter: 'number', hozAlign: 'right', width: 95,  formatter: fmtNum(1) },
       { title: 'μ(null)',      field: 'μ(SNR | null)',             sorter: 'number', hozAlign: 'right', width: 80,  formatter: fmtNum(2) },
       { title: 'σ(null)',      field: 'σ(SNR | null)',             sorter: 'number', hozAlign: 'right', width: 80,  formatter: fmtNum(2) },
@@ -168,6 +216,7 @@ async function main() {
   const plotPanel = document.getElementById('plot-panel');
   const plotImg = document.getElementById('plot');
   const plotTitle = document.getElementById('plot-title');
+  const nstCanvas = document.getElementById('nst');
 
   table.on('rowClick', (e, row) => {
     const d = row.getData();
@@ -177,6 +226,7 @@ async function main() {
       `TIC ${d.TIC} &middot; TOI ${d.TOI} &middot; planet ${d.known_idx + 1} &middot; ` +
       `P=${(+d.Period).toFixed(4)} d, ϕ=${(+d.Phase).toFixed(4)} d, τ=${(+d.Tau).toFixed(4)} d &middot; ` +
       `SNR=${(+d.SNR).toFixed(1)}`;
+    drawNull(nstCanvas, d['μ(SNR | null)'], d['σ(SNR | null)'], d.SNR);
     plotPanel.classList.add('visible');
   });
 
