@@ -1,6 +1,11 @@
 __pycache__/
 .ipynb_checkpoints/
-tois.csv.prephase_update
+tois.csv.*
 plots/manifest.tsv
+plots/ocr_titles.tsv
 plots/_sample.tsv
+plots/_diverged.tsv
+plots/_failed_fits.tsv
+plots/_ocr_review.tsv
+plots/_review_suspect.tsv
 plots/unmatched.tsv
