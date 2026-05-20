@@ -8,19 +8,19 @@
 <script src="https://unpkg.com/tabulator-tables@6.3.1/dist/js/tabulator.min.js"></script>
 <style>
   :root {
-    --bg: #fafafa;
-    --panel: #ffffff;
-    --border: #ddd;
-    --muted: #6b7280;
-    --accent: #2563eb;
+    --bg: #fafafa; --panel: #ffffff; --border: #ddd; --muted: #6b7280; --accent: #2563eb;
   }
   * { box-sizing: border-box; }
   body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: #111; }
   .container { display: flex; flex-direction: column; height: 100vh; }
-  header { padding: 12px 20px; background: #111827; color: white; border-bottom: 1px solid #000; }
+  header { padding: 12px 20px; background: #111827; color: white; border-bottom: 1px solid #000;
+           display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap; }
   header h1 { margin: 0; font-size: 1.15rem; font-weight: 600; letter-spacing: 0.01em; }
-  header p { margin: 2px 0 0; font-size: 0.8rem; color: #9ca3af; }
-  .intro { padding: 12px 24px; background: #ffffff; border-bottom: 1px solid var(--border); font-size: 0.92rem; line-height: 1.55; color: #1f2937; max-width: 1100px; }
+  nav { display: flex; gap: 18px; flex-wrap: wrap; }
+  nav a { color: #cbd5e1; cursor: pointer; font-size: 0.88rem; text-decoration: none; padding: 2px 0; border-bottom: 2px solid transparent; white-space: nowrap; }
+  nav a:hover { color: #fff; }
+  nav a.active { color: #fff; font-weight: 600; border-bottom-color: #fff; }
+  .intro { padding: 12px 24px; background: #fff; border-bottom: 1px solid var(--border); font-size: 0.92rem; line-height: 1.55; color: #1f2937; max-width: 1100px; }
   .intro a { color: var(--accent); text-decoration: none; }
   .intro a:hover { text-decoration: underline; }
   .intro code { background: #f1f5f9; padding: 1px 5px; border-radius: 3px; font-size: 0.88em; }
@@ -29,15 +29,15 @@
   #toolbar .hint { color: var(--muted); }
   #table-wrap { flex: 1 1 auto; min-height: 200px; padding: 0 20px; overflow: hidden; }
   #table { height: 100%; }
+  #placeholder { flex: 1 1 auto; display: none; align-items: center; justify-content: center; color: #9ca3af; font-size: 1rem; }
   #plot-panel { flex: 0 0 auto; position: relative; padding: 10px 20px 16px; background: var(--panel); border-top: 1px solid var(--border); display: none; }
   #plot-panel.visible { display: block; }
   #plot-panel h2 { margin: 0 32px 6px 0; font-size: 0.95rem; font-weight: 500; color: #374151; }
-  #plot-close { position: absolute; top: 6px; right: 10px; width: 28px; height: 28px; line-height: 24px; text-align: center; border: 1px solid var(--border); border-radius: 50%; background: #ffffff; color: #4b5563; cursor: pointer; font-size: 1rem; padding: 0; }
+  #plot-close { position: absolute; top: 6px; right: 10px; width: 28px; height: 28px; line-height: 24px; text-align: center; border: 1px solid var(--border); border-radius: 50%; background: #fff; color: #4b5563; cursor: pointer; font-size: 1rem; padding: 0; }
   #plot-close:hover { background: #fee2e2; color: #b91c1c; border-color: #fca5a5; }
   #plot-wrap { display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap; }
   #plot { height: 380px; width: auto; max-width: 100%; border: 1px solid var(--border); background: #fff; }
   #nst  { height: 380px; aspect-ratio: 13 / 8; border: 1px solid var(--border); background: #fff; }
-  #nst.hidden { display: none; }
   .tabulator-row.tabulator-selected { background: #dbeafe !important; }
   .tabulator-row.tabulator-selectable:hover { background: #e0e7ff !important; cursor: pointer; }
   .tabulator { font-size: 0.82rem; }
@@ -47,9 +47,10 @@
 <body>
 <div class="container">
   <header>
-    <h1>TESS Exoplanet Catalog</h1>
+    <h1 id="page-title">TESS Exoplanet Catalog</h1>
+    <nav id="nav"></nav>
   </header>
-  <section class="intro">
+  <section class="intro" id="intro" style="display:none">
     Here we compiled a list of all exoplanet candidates, independently verified using our pipeline
     (we recovered ≳&nbsp;99% at SNR&nbsp;&gt;&nbsp;20 and 95% of all candidates), which were already
     known from the TESS Objects of Interest (TOI) catalog. For consistency we used only the
@@ -60,11 +61,12 @@
     (based on the Null Signal Template (NST) developed in the aforementioned paper) for each
     planetary candidate.
   </section>
-  <div id="toolbar">
+  <div id="toolbar" style="display:none">
     <input id="filter" placeholder="Filter TIC or TOI…" autocomplete="off">
-    <span class="hint">Click any row to see its diagnostic plot · Click column headers to sort</span>
+    <span class="hint">Click any row to see its diagnostic plots · Click column headers to sort</span>
   </div>
-  <div id="table-wrap"><div id="table"></div></div>
+  <div id="table-wrap" style="display:none"><div id="table"></div></div>
+  <div id="placeholder">Coming soon.</div>
   <div id="plot-panel">
     <button id="plot-close" type="button" aria-label="Close plot">×</button>
     <h2 id="plot-title"></h2>
@@ -73,83 +75,91 @@
 </div>
 
 <script>
-const CSV_URL = 'tois.csv';
+// ---- page definitions ----
+const PAGES = [
+  { key: 'overview',     title: 'Overview',                type: 'placeholder' },
+  { key: 'tess',         title: 'TESS Exoplanet Catalog',  type: 'table', csv: 'tois.csv',     intro: true,
+    plot: d => `plots/${d.TIC}/${d.known_idx}.jpg`,
+    ptitle: d => `TIC ${d.TIC} · TOI ${d.TOI} · planet ${d.known_idx + 1} · P=${(+d.Period).toFixed(4)} d, ϕ=${(+d.Phase).toFixed(4)} d, τ=${(+d.Tau).toFixed(4)} d · SNR=${(+d.SNR).toFixed(1)}` },
+  { key: 'tessnew',      title: 'TESS New Candidates',     type: 'table', csv: 'tois_new.csv', intro: false,
+    plot: d => `plots_new/${d.TIC}/${d._cand_idx}.jpg`,
+    ptitle: d => `TIC ${d.TIC} · candidate idx ${d._cand_idx} · P=${(+d.Period).toFixed(4)} d, ϕ=${(+d.Phase).toFixed(4)} d, τ=${(+d.Tau).toFixed(4)} d · SNR=${(+d.SNR).toFixed(1)}` },
+  { key: 'keplercat',    title: 'Kepler Exoplanet Catalog', type: 'placeholder' },
+  { key: 'keplernew',    title: 'Kepler New Candidates',    type: 'placeholder' },
+];
+
+const COLUMNS = [
+  { title: 'TIC',        field: 'TIC',                       sorter: 'number', hozAlign: 'right', width: 110, frozen: true, formatter: fmtInt },
+  { title: 'TOI',        field: 'TOI',                       sorter: 'number', hozAlign: 'right', width: 90,  formatter: fmtNum(2) },
+  { title: 'Period [d]', field: 'Period',                    sorter: 'number', hozAlign: 'right', width: 105, formatter: fmtNum(4) },
+  { title: 'Phase [d]',  field: 'Phase',                     sorter: 'number', hozAlign: 'right', width: 105, formatter: fmtNum(4) },
+  { title: 'τ [d]',       field: 'Tau',                       sorter: 'number', hozAlign: 'right', width: 90,  formatter: fmtNum(4) },
+  { title: 'SNR',        field: 'SNR',                       sorter: 'number', hozAlign: 'right', width: 95,  formatter: fmtNum(2) },
+  { title: 'N transits', field: 'Number of Valid Transits',  sorter: 'number', hozAlign: 'right', width: 100, formatter: fmtInt },
+  { title: 'log₁₀ p',    field: 'log10(p value)',            sorter: 'number', hozAlign: 'right', width: 95,  formatter: fmtNum(1) },
+  { title: 'μ(null)',    field: 'μ(SNR | null)',             sorter: 'number', hozAlign: 'right', width: 80,  formatter: fmtNum(2) },
+  { title: 'σ(null)',    field: 'σ(SNR | null)',             sorter: 'number', hozAlign: 'right', width: 80,  formatter: fmtNum(2) },
+];
 
 function parseCSV(text) {
-  // tois.csv is plain comma-delimited; no quoted fields with embedded commas.
   const lines = text.replace(/\r/g, '').split('\n').filter(l => l.length);
   const header = lines[0].split(',');
   return lines.slice(1).map(line => {
-    const cells = line.split(',');
-    const obj = {};
+    const cells = line.split(','); const obj = {};
     header.forEach((h, i) => {
       const v = cells[i];
-      if (v == null || v === '') {
-        obj[h] = null;
-      } else if (v === 'True' || v === 'False') {
-        obj[h] = (v === 'True');
-      } else if (!isNaN(v) && v.trim() !== '') {
-        obj[h] = Number(v);
-      } else {
-        obj[h] = v;
-      }
+      if (v == null || v === '') obj[h] = null;
+      else if (v === 'True' || v === 'False') obj[h] = (v === 'True');
+      else if (!isNaN(v) && v.trim() !== '') obj[h] = Number(v);
+      else obj[h] = v;
     });
     return obj;
   });
 }
-
 function fmtNum(p) {
   return cell => {
     const v = cell.getValue();
     if (v == null || isNaN(v)) return '';
-    // For extreme log10(p) values, use scientific notation
-    if (Math.abs(v) >= 1e5 || (v !== 0 && Math.abs(v) < 1e-3)) {
-      return v.toExponential(2);
-    }
-    return Number(v).toLocaleString(undefined, {
-      minimumFractionDigits: 0,
-      maximumFractionDigits: p,
-    });
+    if (Math.abs(v) >= 1e5 || (v !== 0 && Math.abs(v) < 1e-3)) return v.toExponential(2);
+    return Number(v).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: p });
   };
 }
+function fmtInt(cell) { const v = cell.getValue(); return v == null ? '' : Number(v).toLocaleString(); }
 
-function fmtInt(cell) {
-  const v = cell.getValue();
-  return v == null ? '' : Number(v).toLocaleString();
-}
-
-// Render the NST null-distribution plot for a row: sky-blue Gaussian N(mu,sigma)
-// filled to the x-axis, red dashed line at the candidate SNR. Same proportions
-// (13:8) as the transit plot. Drawn at 1300x800 backing for crisp text.
+// ---- NST null-distribution plot (sky-blue Gaussian filled to x-axis + red
+// dashed candidate line). Adaptive y-limits (0, 1.1*max); 13:8 proportions. ----
 function drawNull(canvas, mu, sigma, snr) {
   const W = 1300, H = 800, ctx = canvas.getContext('2d');
   canvas.width = W; canvas.height = H;
   ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, W, H);
-  ctx.fillStyle = '#111'; ctx.textAlign = 'center'; ctx.font = '30px sans-serif';
-  ctx.fillText('Null distribution vs. candidate SNR', W / 2, 42);
-
   if (mu == null || sigma == null || !isFinite(mu) || !isFinite(sigma) || sigma <= 0) {
-    ctx.fillStyle = '#888'; ctx.font = 'italic 30px sans-serif';
+    ctx.fillStyle = '#888'; ctx.textAlign = 'center'; ctx.font = 'italic 30px sans-serif';
     ctx.fillText('No null-simulation (NST) data for this candidate', W / 2, H / 2);
     return;
   }
-
-  const px0 = 80, px1 = W - 40, py0 = 78, py1 = H - 95;
+  const px0 = 80, px1 = W - 40, py0 = 40, py1 = H - 95;
   let lo = Math.min(mu - 5 * sigma, snr), hi = Math.max(mu + 5 * sigma, snr);
   const pad = 0.08 * (hi - lo) || 1; lo -= pad; hi += pad;
   const X = x => px0 + (x - lo) / (hi - lo) * (px1 - px0);
   const g = x => Math.exp(-0.5 * ((x - mu) / sigma) ** 2);   // peak = 1
-  const Y = y => py1 - (y / 1.15) * (py1 - py0);
-  const N = 400;
-
-  // gaussian fill
+  const YMAX = 1.1;                                          // ylim = (0, 1.1*max)
+  const Y = y => py1 - (y / YMAX) * (py1 - py0);
+  // adaptive x-sampling: ~250 points in the 3-sigma core, ~50 in the tails,
+  // plus the exact candidate location.
+  const a = Math.max(lo, mu - 3 * sigma), b = Math.min(hi, mu + 3 * sigma);
+  const seg = (x0, x1, n, arr) => { if (x1 > x0) for (let i = 0; i <= n; i++) arr.push(x0 + (x1 - x0) * i / n); };
+  let xs = [];
+  seg(lo, a, 25, xs); seg(a, b, 250, xs); seg(b, hi, 25, xs);
+  xs.push(snr, lo, hi);
+  xs = [...new Set(xs)].filter(x => x >= lo && x <= hi).sort((p, q) => p - q);
+  // fill
   ctx.beginPath(); ctx.moveTo(X(lo), py1);
-  for (let i = 0; i <= N; i++) { const x = lo + (hi - lo) * i / N; ctx.lineTo(X(x), Y(g(x))); }
+  for (const x of xs) ctx.lineTo(X(x), Y(g(x)));
   ctx.lineTo(X(hi), py1); ctx.closePath();
   ctx.fillStyle = 'rgba(135,206,235,0.55)'; ctx.fill();
-  // gaussian curve
+  // curve
   ctx.beginPath();
-  for (let i = 0; i <= N; i++) { const x = lo + (hi - lo) * i / N; const xx = X(x), yy = Y(g(x)); i ? ctx.lineTo(xx, yy) : ctx.moveTo(xx, yy); }
+  xs.forEach((x, i) => { const xx = X(x), yy = Y(g(x)); i ? ctx.lineTo(xx, yy) : ctx.moveTo(xx, yy); });
   ctx.strokeStyle = '#3a9bd5'; ctx.lineWidth = 3; ctx.stroke();
   // candidate line
   ctx.beginPath(); ctx.setLineDash([12, 8]); ctx.strokeStyle = '#d62728'; ctx.lineWidth = 3;
@@ -162,7 +172,7 @@ function drawNull(canvas, mu, sigma, snr) {
   const dec = (hi - lo) > 20 ? 0 : 1;
   for (let i = 0; i <= 6; i++) { const x = lo + (hi - lo) * i / 6; ctx.beginPath(); ctx.moveTo(X(x), py1); ctx.lineTo(X(x), py1 + 9); ctx.stroke(); ctx.fillText(x.toFixed(dec), X(x), py1 + 36); }
   ctx.font = '30px sans-serif'; ctx.fillText('SNR', (px0 + px1) / 2, H - 26);
-  // legend (white box, top-right)
+  // legend
   const lw = 360, lh = 92, lx = px1 - lw - 14, ly = py0 + 14;
   ctx.fillStyle = 'rgba(255,255,255,0.88)'; ctx.fillRect(lx, ly, lw, lh);
   ctx.strokeStyle = '#ccc'; ctx.lineWidth = 1; ctx.strokeRect(lx, ly, lw, lh);
@@ -175,89 +185,113 @@ function drawNull(canvas, mu, sigma, snr) {
   ctx.fillStyle = '#222'; ctx.fillText('Candidate', lx + 78, ly + 72);
 }
 
-async function main() {
-  const resp = await fetch(CSV_URL);
-  if (!resp.ok) {
-    console.error(`Failed to load ${CSV_URL}: ${resp.status}`);
-    return;
+// ---- app ----
+const els = {};
+let table = null, currentPage = null;
+const cache = {};
+
+async function loadData(page) {
+  if (cache[page.key]) return cache[page.key];
+  const resp = await fetch(page.csv);
+  const rows = parseCSV(await resp.text());
+  if (page.key === 'tess') {  // assign known_idx per TIC in CSV row order
+    const counter = new Map();
+    rows.forEach(r => { const k = counter.get(r.TIC) ?? 0; r.known_idx = k; counter.set(r.TIC, k + 1); });
   }
-  const text = await resp.text();
-  const rows = parseCSV(text);
-
-  // Assign known_idx per TIC in tois.csv row order — must match build_plots.py's groupby.cumcount().
-  const counter = new Map();
-  rows.forEach(r => {
-    const k = counter.get(r.TIC) ?? 0;
-    r.known_idx = k;
-    counter.set(r.TIC, k + 1);
-  });
-
-  const table = new Tabulator('#table', {
-    data: rows,
-    height: '100%',
-    layout: 'fitDataTable',
-    selectableRows: 1,
-    movableColumns: true,
-    initialSort: [{ column: 'SNR', dir: 'desc' }],
-    columns: [
-      { title: 'TIC',          field: 'TIC',                       sorter: 'number', hozAlign: 'right', width: 110, frozen: true, formatter: fmtInt },
-      { title: 'TOI',          field: 'TOI',                       sorter: 'number', hozAlign: 'right', width: 90,  formatter: fmtNum(2) },
-      { title: 'Period [d]',   field: 'Period',                    sorter: 'number', hozAlign: 'right', width: 105, formatter: fmtNum(4) },
-      { title: 'Phase [d]',    field: 'Phase',                     sorter: 'number', hozAlign: 'right', width: 105, formatter: fmtNum(4) },
-      { title: 'τ [d]',         field: 'Tau',                       sorter: 'number', hozAlign: 'right', width: 90,  formatter: fmtNum(4) },
-      { title: 'SNR',          field: 'SNR',                       sorter: 'number', hozAlign: 'right', width: 95,  formatter: fmtNum(2) },
-      { title: 'N transits',   field: 'Number of Valid Transits',  sorter: 'number', hozAlign: 'right', width: 100, formatter: fmtInt },
-      { title: 'log₁₀ p',      field: 'log10(p value)',            sorter: 'number', hozAlign: 'right', width: 95,  formatter: fmtNum(1) },
-      { title: 'μ(null)',      field: 'μ(SNR | null)',             sorter: 'number', hozAlign: 'right', width: 80,  formatter: fmtNum(2) },
-      { title: 'σ(null)',      field: 'σ(SNR | null)',             sorter: 'number', hozAlign: 'right', width: 80,  formatter: fmtNum(2) },
-    ],
-  });
-
-  const plotPanel = document.getElementById('plot-panel');
-  const plotImg = document.getElementById('plot');
-  const plotTitle = document.getElementById('plot-title');
-  const nstCanvas = document.getElementById('nst');
-
-  table.on('rowClick', (e, row) => {
-    const d = row.getData();
-    plotImg.src = `plots/${d.TIC}/${d.known_idx}.jpg`;
-    plotImg.alt = `TIC ${d.TIC} planet ${d.known_idx}`;
-    plotTitle.innerHTML =
-      `TIC ${d.TIC} &middot; TOI ${d.TOI} &middot; planet ${d.known_idx + 1} &middot; ` +
-      `P=${(+d.Period).toFixed(4)} d, ϕ=${(+d.Phase).toFixed(4)} d, τ=${(+d.Tau).toFixed(4)} d &middot; ` +
-      `SNR=${(+d.SNR).toFixed(1)}`;
-    drawNull(nstCanvas, d['μ(SNR | null)'], d['σ(SNR | null)'], d.SNR);
-    plotPanel.classList.add('visible');
-  });
-
-  document.getElementById('plot-close').addEventListener('click', () => {
-    plotPanel.classList.remove('visible');
-    plotImg.removeAttribute('src');
-    table.deselectRow();
-  });
-
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && plotPanel.classList.contains('visible')) {
-      document.getElementById('plot-close').click();
-    }
-  });
-
-  const filterInput = document.getElementById('filter');
-  filterInput.addEventListener('input', () => {
-    const v = filterInput.value.trim();
-    if (!v) { table.clearFilter(true); return; }
-    table.setFilter([
-      [
-        { field: 'TIC', type: 'like', value: v },
-        { field: 'TOI', type: 'like', value: v },
-      ],
-    ]);
-  });
+  cache[page.key] = rows;
+  return rows;
 }
 
-main().catch(err => {
-  console.error(err);
-});
+function showPlot(page, d) {
+  els.plotImg.src = page.plot(d);
+  els.plotImg.alt = `TIC ${d.TIC}`;
+  els.plotTitle.textContent = page.ptitle(d);
+  drawNull(els.nst, d['μ(SNR | null)'], d['σ(SNR | null)'], d.SNR);
+  els.plotPanel.classList.add('visible');
+}
+
+async function renderTablePage(page) {
+  els.intro.style.display = page.intro ? 'block' : 'none';
+  els.toolbar.style.display = 'flex';
+  els.tableWrap.style.display = 'block';
+  els.placeholder.style.display = 'none';
+  els.plotPanel.classList.remove('visible');
+  els.filter.value = '';
+  if (table) { table.destroy(); table = null; }
+
+  const rows = await loadData(page);
+  table = new Tabulator('#table', {
+    data: rows, height: '100%', layout: 'fitDataTable',
+    selectableRows: 1, movableColumns: true,
+    initialSort: [{ column: 'SNR', dir: 'desc' }],
+    columns: COLUMNS,
+  });
+  table.on('rowClick', (e, row) => showPlot(page, row.getData()));
+}
+
+function renderPlaceholder() {
+  els.intro.style.display = 'none';
+  els.toolbar.style.display = 'none';
+  els.tableWrap.style.display = 'none';
+  els.plotPanel.classList.remove('visible');
+  els.placeholder.style.display = 'flex';
+  if (table) { table.destroy(); table = null; }
+}
+
+function switchPage(key) {
+  const page = PAGES.find(p => p.key === key) || PAGES.find(p => p.key === 'tess');
+  currentPage = page;
+  document.getElementById('page-title').textContent = page.title;
+  document.title = page.title;
+  [...els.nav.children].forEach(a => a.classList.toggle('active', a.dataset.key === page.key));
+  if (location.hash !== '#' + page.key) location.hash = page.key;
+  if (page.type === 'table') renderTablePage(page);
+  else renderPlaceholder();
+}
+
+function main() {
+  els.nav = document.getElementById('nav');
+  els.intro = document.getElementById('intro');
+  els.toolbar = document.getElementById('toolbar');
+  els.filter = document.getElementById('filter');
+  els.tableWrap = document.getElementById('table-wrap');
+  els.placeholder = document.getElementById('placeholder');
+  els.plotPanel = document.getElementById('plot-panel');
+  els.plotImg = document.getElementById('plot');
+  els.plotTitle = document.getElementById('plot-title');
+  els.nst = document.getElementById('nst');
+
+  // nav links
+  PAGES.forEach(p => {
+    const a = document.createElement('a');
+    a.textContent = p.title; a.dataset.key = p.key; a.href = '#' + p.key;
+    a.addEventListener('click', ev => { ev.preventDefault(); switchPage(p.key); });
+    els.nav.appendChild(a);
+  });
+
+  // filter
+  els.filter.addEventListener('input', () => {
+    if (!table) return;
+    const v = els.filter.value.trim();
+    if (!v) { table.clearFilter(true); return; }
+    table.setFilter([[{ field: 'TIC', type: 'like', value: v }, { field: 'TOI', type: 'like', value: v }]]);
+  });
+
+  // plot panel close
+  document.getElementById('plot-close').addEventListener('click', () => {
+    els.plotPanel.classList.remove('visible');
+    els.plotImg.removeAttribute('src');
+    if (table) table.deselectRow();
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && els.plotPanel.classList.contains('visible')) document.getElementById('plot-close').click();
+  });
+  window.addEventListener('hashchange', () => switchPage(location.hash.slice(1)));
+
+  switchPage(location.hash.slice(1) || 'tess');
+}
+
+main();
 </script>
 </body>
 </html>
