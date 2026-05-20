@@ -271,10 +271,9 @@ def main(limit=None, nproc=32):
         print(f"max p_drift: {mdf['p_drift'].max():.4%}, "
               f"max ph_drift: {mdf['ph_drift'].max():.4%}", flush=True)
 
-    # Reconcile tois.csv with the plots that the website actually shows:
-    #  - period-only matches: overwrite Period/Phase/Tau (catalog ephemeris was stale)
-    #  - ALL matches: overwrite SNR with the plot's source SNR so the table value
-    #    equals the SNR printed in the linked plot.
+    # Reconcile tois.csv with the plots the website shows: overwrite
+    # Period/Phase/Tau/SNR of every matched row with the values from the plot it
+    # links to, so the table value equals what is printed in the linked plot.
     if limit is None:
         backup = CSV + '.preplot_sync'
         if not os.path.isfile(backup):
@@ -284,31 +283,19 @@ def main(limit=None, nproc=32):
 
         base = pd.read_csv(CSV)
         base['known_idx'] = base.groupby('TIC').cumcount()
-
-        period_only = {
-            'FullRun_known_same_idx_period_only',
-            'FullRun_known_other_idx_period_only',
-            'RecoveryRun_cand_period_only',
-            'FullRun_cand_period_only',
-        }
-        po = mdf[mdf['src_type'].isin(period_only)][['TIC', 'known_idx', 'P_src', 'phi_src', 'tau_src']]
-        merged = base.merge(po, on=['TIC', 'known_idx'], how='left')
-        pmask = merged['phi_src'].notna()
-        merged.loc[pmask, 'Period'] = merged.loc[pmask, 'P_src']
-        merged.loc[pmask, 'Phase']  = merged.loc[pmask, 'phi_src']
-        merged.loc[pmask, 'Tau']    = merged.loc[pmask, 'tau_src']
-        merged = merged.drop(columns=['P_src', 'phi_src', 'tau_src'])
-
-        snr = mdf[['TIC', 'known_idx', 'snr_src']]
-        merged = merged.merge(snr, on=['TIC', 'known_idx'], how='left')
-        smask = merged['snr_src'].notna()
+        src = mdf[['TIC', 'known_idx', 'P_src', 'phi_src', 'tau_src', 'snr_src']]
+        merged = base.merge(src, on=['TIC', 'known_idx'], how='left')
+        mask = merged['P_src'].notna()
+        merged.loc[mask, 'Period'] = merged.loc[mask, 'P_src']
+        merged.loc[mask, 'Phase']  = merged.loc[mask, 'phi_src']
+        merged.loc[mask, 'Tau']    = merged.loc[mask, 'tau_src']
         if 'SNR' in merged.columns:
+            smask = mask & merged['snr_src'].notna()
             merged.loc[smask, 'SNR'] = merged.loc[smask, 'snr_src']
-        merged = merged.drop(columns=['known_idx', 'snr_src'])
-
+        merged = merged.drop(columns=['known_idx', 'P_src', 'phi_src', 'tau_src', 'snr_src'])
         merged.to_csv(CSV, index=False)
-        print(f"reconciled tois.csv: {pmask.sum()} period-only ephemerides, "
-              f"{smask.sum()} SNRs synced to plot source", flush=True)
+        print(f"reconciled tois.csv: Period/Phase/Tau/SNR synced to plot source "
+              f"for {mask.sum()} rows", flush=True)
 
 
 if __name__ == "__main__":
