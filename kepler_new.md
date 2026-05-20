@@ -1,3 +1,1 @@
-# Kepler New Candidates
-
-_Coming soon. Edit `kepler_new.md` to populate this page._
+_Coming soon.

@@ -1,3 +1,1 @@
-# Kepler Exoplanet Catalog
-
-_Coming soon. Edit `kepler_catalog.md` to populate this page._
+_Coming soon.
