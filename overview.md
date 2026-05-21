@@ -29,8 +29,10 @@ estimate (KDE) of the same samples.
 
 ![Gaussian vs KDE p-value at the p ≈ 0.01 threshold](overview_nst_pvalue.png)
 
-The Gaussian approximation converges to the true $p = 0.01$ (red dashed) by
-$N \approx 40$, whereas the KDE over-estimates the tail by roughly a factor of
-two at these sample sizes (its kernels leak probability past the threshold).
-The per-star null max-SNR distribution is therefore close to Gaussian, and the
-Gaussian p-value is a reliable significance estimate.
+Solid lines are the median across the 20 stars and the shaded bands are the
+25th–75th percentile across them. The Gaussian approximation converges to the
+true $p = 0.01$ (red dashed) by $N \approx 40$, whereas the KDE over-estimates
+the tail by roughly a factor of two at these sample sizes (its kernels leak
+probability past the threshold). The per-star null max-SNR distribution is
+therefore close to Gaussian, and the Gaussian p-value is a reliable significance
+estimate.
