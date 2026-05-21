@@ -34,3 +34,15 @@ The solid line is the median across the 20 stars and the shaded band is the
 $p = 0.01$ (red dashed) by $N \approx 40$ and stays within a factor of ~2 of it,
 so the per-star null max-SNR distribution is close to Gaussian and the Gaussian
 p-value is a reliable significance estimate.
+
+## How significant are the candidates?
+
+Comparing the p-value distributions of the established (known) TOIs and our new
+candidates — plotted as $-\log_{10}(p)$ on a log axis, so larger means more
+significant:
+
+![p-value distribution of known vs. new TOIs](overview_pvalue_dist.png)
+
+The known TOIs peak around $-\log_{10}(p) \sim 10^3$ (extremely significant),
+while the new candidates peak around a few, as expected for fainter signals —
+but they still sit well below $p = 0.01$.
