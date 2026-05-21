@@ -85,6 +85,8 @@ const PAGES = [
     plot:  d => `plots/${d.TIC}/${d.known_idx}.jpg`,
     ptitle:d => `TIC ${d.TIC} · TOI ${d.TOI} · planet ${d.known_idx + 1} · P=${(+d.Period).toFixed(4)} d, ϕ=${(+d.Phase).toFixed(4)} d, τ=${(+d.Tau).toFixed(4)} d · SNR=${(+d.SNR).toFixed(1)}` },
   { key: 'tessnew',   title: 'TESS New Candidates',      md: 'tess_new.md',       type: 'table', csv: 'tois_new.csv',
+    extraColumns: [{ title: 'Outlier score', field: 'outlier_score', sorter: 'number', hozAlign: 'right', width: 120, formatter: fmtNum(2) }],
+    initialSort: [{ column: 'outlier_score', dir: 'desc' }],
     plot:  d => `plots_new/${d.TIC}/${d._cand_idx}.jpg`,
     ptitle:d => `TIC ${d.TIC} · candidate idx ${d._cand_idx} · P=${(+d.Period).toFixed(4)} d, ϕ=${(+d.Phase).toFixed(4)} d, τ=${(+d.Tau).toFixed(4)} d · SNR=${(+d.SNR).toFixed(1)}` },
   { key: 'keplercat', title: 'Kepler Exoplanet Catalog', md: 'kepler_catalog.md', type: 'placeholder' },
@@ -239,7 +241,8 @@ async function renderTablePage(page) {
   table = new Tabulator('#table', {
     data: rows, height: '100%', layout: 'fitDataTable',
     selectableRows: 1, movableColumns: true,
-    initialSort: [{ column: 'SNR', dir: 'desc' }], columns: COLUMNS,
+    initialSort: page.initialSort || [{ column: 'SNR', dir: 'desc' }],
+    columns: COLUMNS.concat(page.extraColumns || []),
   });
   table.on('rowClick', (e, row) => showPlot(page, row.getData()));
 }
