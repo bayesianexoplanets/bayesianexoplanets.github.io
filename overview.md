@@ -11,7 +11,7 @@ deviation of the maximum SNR recovered in each NST run on that star.
 
 ## How many NSTs are needed to estimate $\mu$ and $\sigma$?
 
-Using ~100 NST runs for each of 20 randomly selected stars, we track the running
+Using ~100 NST runs for each of 100 randomly selected stars, we track the running
 estimates of $\mu$ and $\sigma$ as a function of the number of NSTs used, $N$.
 
 ![Convergence of μ and σ with the number of NSTs](overview_nst_musigma.png)
