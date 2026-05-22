@@ -87,8 +87,6 @@ const PAGES = [
     plot:  d => `plots/${d.TIC}/${d.known_idx}.jpg`,
     ptitle:d => `TIC ${d.TIC} · TOI ${d.TOI} · planet ${d.known_idx + 1} · P=${(+d.Period).toFixed(4)} d, Epoch=${(+d.Epoch).toFixed(4)} BTJD, Dur=${(+d.Duration).toFixed(4)} d · SNR=${(+d.SNR).toFixed(1)}` },
   { key: 'tessnew',   title: 'TESS New Candidates',      md: 'tess_new.md',       type: 'table', csv: 'tois_new.csv',
-    extraColumns: [{ title: 'Outlier score', field: 'outlier_score', sorter: 'number', hozAlign: 'right', width: 120, formatter: fmtSig }],
-    initialSort: [{ column: 'outlier_score', dir: 'desc' }],
     plot:  d => `plots_new/${d.TIC}/${d._cand_idx}.jpg`,
     ptitle:d => `TIC ${d.TIC} · candidate idx ${d._cand_idx} · P=${(+d.Period).toFixed(4)} d, Epoch=${(+d.Epoch).toFixed(4)} BTJD, Dur=${(+d.Duration).toFixed(4)} d · SNR=${(+d.SNR).toFixed(1)}` },
   { key: 'keplercat', title: 'Kepler Exoplanet Catalog', md: 'kepler_catalog.md', type: 'placeholder' },
