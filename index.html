@@ -85,12 +85,12 @@ const PAGES = [
   { key: 'overview',  title: 'Overview',                 md: 'overview.md',       type: 'placeholder' },
   { key: 'tess',      title: 'TESS Exoplanet Catalog',   md: 'tess.md',           type: 'table', csv: 'tois.csv',
     plot:  d => `plots/${d.TIC}/${d.known_idx}.jpg`,
-    ptitle:d => `TIC ${d.TIC} · TOI ${d.TOI} · planet ${d.known_idx + 1} · P=${(+d.Period).toFixed(4)} d, Epoch=${(+d.Epoch).toFixed(4)} BJD, Dur=${(+d.Duration).toFixed(4)} d · SNR=${(+d.SNR).toFixed(1)}` },
+    ptitle:d => `TIC ${d.TIC} · TOI ${d.TOI} · planet ${d.known_idx + 1} · P=${(+d.Period).toFixed(4)} d, Epoch=${(+d.Epoch).toFixed(4)} BTJD, Dur=${(+d.Duration).toFixed(4)} d · SNR=${(+d.SNR).toFixed(1)}` },
   { key: 'tessnew',   title: 'TESS New Candidates',      md: 'tess_new.md',       type: 'table', csv: 'tois_new.csv',
-    extraColumns: [{ title: 'Outlier score', field: 'outlier_score', sorter: 'number', hozAlign: 'right', width: 120, formatter: fmtNum(2) }],
+    extraColumns: [{ title: 'Outlier score', field: 'outlier_score', sorter: 'number', hozAlign: 'right', width: 120, formatter: fmtSig }],
     initialSort: [{ column: 'outlier_score', dir: 'desc' }],
     plot:  d => `plots_new/${d.TIC}/${d._cand_idx}.jpg`,
-    ptitle:d => `TIC ${d.TIC} · candidate idx ${d._cand_idx} · P=${(+d.Period).toFixed(4)} d, Epoch=${(+d.Epoch).toFixed(4)} BJD, Dur=${(+d.Duration).toFixed(4)} d · SNR=${(+d.SNR).toFixed(1)}` },
+    ptitle:d => `TIC ${d.TIC} · candidate idx ${d._cand_idx} · P=${(+d.Period).toFixed(4)} d, Epoch=${(+d.Epoch).toFixed(4)} BTJD, Dur=${(+d.Duration).toFixed(4)} d · SNR=${(+d.SNR).toFixed(1)}` },
   { key: 'keplercat', title: 'Kepler Exoplanet Catalog', md: 'kepler_catalog.md', type: 'placeholder' },
   { key: 'keplernew', title: 'Kepler New Candidates',    md: 'kepler_new.md',     type: 'placeholder' },
 ];
@@ -98,20 +98,20 @@ const PAGES = [
 const COLUMNS = [
   { title: 'TIC',         field: 'TIC',                      sorter: 'number', hozAlign: 'right', width: 110, frozen: true, formatter: fmtInt },
   { title: 'TOI',         field: 'TOI',                      sorter: 'number', hozAlign: 'right', width: 80,  formatter: fmtNum(2) },
-  { title: 'Period [d]',  field: 'Period',                   sorter: 'number', hozAlign: 'right', width: 160, formatter: fmtPM('err_Period', 4) },
-  { title: 'Epoch [BJD]', field: 'Epoch',                    sorter: 'number', hozAlign: 'right', width: 185, formatter: fmtEpoch('err_Epoch', 4) },
-  { title: 'Duration [d]',field: 'Duration',                 sorter: 'number', hozAlign: 'right', width: 150, formatter: fmtPM('err_Duration', 4) },
-  { title: 'SNR',         field: 'SNR',                      sorter: 'number', hozAlign: 'right', width: 95,  formatter: fmtNum(2) },
-  { title: 'Rₚ [R⊕]',     field: 'Radius_planet',            sorter: 'number', hozAlign: 'right', width: 130, formatter: fmtPMasym('Radius_planet_errp', 'Radius_planet_errm', 2) },
-  { title: 'M★ [M☉]',     field: 'Mass',                     sorter: 'number', hozAlign: 'right', width: 90,  formatter: fmtNum(2) },
-  { title: 'R★ [R☉]',     field: 'Radius',                   sorter: 'number', hozAlign: 'right', width: 90,  formatter: fmtNum(2) },
-  { title: 'logg',        field: 'logg',                     sorter: 'number', hozAlign: 'right', width: 80,  formatter: fmtNum(2) },
-  { title: '[Fe/H]',      field: 'FEH',                      sorter: 'number', hozAlign: 'right', width: 80,  formatter: fmtNum(2) },
-  { title: 'Teff [K]',    field: 'Teff',                     sorter: 'number', hozAlign: 'right', width: 90,  formatter: fmtNum(0) },
+  { title: 'Period [d]',  field: 'Period',                   sorter: 'number', hozAlign: 'right', width: 150, formatter: fmtPM('err_Period') },
+  { title: 'Epoch [BTJD]',field: 'Epoch',                    sorter: 'number', hozAlign: 'right', width: 150, formatter: fmtEpoch('err_Epoch', 4) },
+  { title: 'Duration [d]',field: 'Duration',                 sorter: 'number', hozAlign: 'right', width: 140, formatter: fmtPM('err_Duration') },
+  { title: 'SNR',         field: 'SNR',                      sorter: 'number', hozAlign: 'right', width: 95,  formatter: fmtSig },
+  { title: 'Rₚ [R⊕]',     field: 'Radius_planet',            sorter: 'number', hozAlign: 'right', width: 130, formatter: fmtPMasym('Radius_planet_errp', 'Radius_planet_errm') },
+  { title: 'M★ [M☉]',     field: 'Mass',                     sorter: 'number', hozAlign: 'right', width: 90,  formatter: fmtSig },
+  { title: 'R★ [R☉]',     field: 'Radius',                   sorter: 'number', hozAlign: 'right', width: 90,  formatter: fmtSig },
+  { title: 'logg',        field: 'logg',                     sorter: 'number', hozAlign: 'right', width: 80,  formatter: fmtSig },
+  { title: '[Fe/H]',      field: 'FEH',                      sorter: 'number', hozAlign: 'right', width: 80,  formatter: fmtSig },
+  { title: 'Teff [K]',    field: 'Teff',                     sorter: 'number', hozAlign: 'right', width: 90,  formatter: fmtSig },
   { title: 'N transits',  field: 'Number of Valid Transits', sorter: 'number', hozAlign: 'right', width: 100, formatter: fmtInt },
-  { title: 'log₁₀ p',     field: 'log10(p value)',           sorter: 'number', hozAlign: 'right', width: 95,  formatter: fmtNum(1) },
-  { title: 'μ(null)',     field: 'μ(SNR | null)',            sorter: 'number', hozAlign: 'right', width: 80,  formatter: fmtNum(2) },
-  { title: 'σ(null)',     field: 'σ(SNR | null)',            sorter: 'number', hozAlign: 'right', width: 80,  formatter: fmtNum(2) },
+  { title: 'log₁₀ p',     field: 'log10(p value)',           sorter: 'number', hozAlign: 'right', width: 95,  formatter: fmtSig },
+  { title: 'μ(null)',     field: 'μ(SNR | null)',            sorter: 'number', hozAlign: 'right', width: 80,  formatter: fmtSig },
+  { title: 'σ(null)',     field: 'σ(SNR | null)',            sorter: 'number', hozAlign: 'right', width: 80,  formatter: fmtSig },
 ];
 
 function parseCSV(text) {
@@ -138,31 +138,37 @@ function fmtNum(p) {
   };
 }
 function fmtInt(cell) { const v = cell.getValue(); return v == null ? '' : Number(v).toLocaleString(); }
-// numeric value, matching fmtNum's exponential/locale behaviour
-function fmtVal(v, p) {
-  if (v == null || isNaN(v)) return '';
-  if (Math.abs(v) >= 1e5 || (v !== 0 && Math.abs(v) < 1e-3)) return v.toExponential(2);
-  return Number(v).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: p });
+// round a value to 3 significant figures for display
+function sig3(v) {
+  if (v == null || isNaN(v) || !isFinite(v)) return '';
+  if (v === 0) return '0';
+  const a = Math.abs(v);
+  if (a >= 1e6 || a < 1e-4) return v.toExponential(2);
+  const k = Math.floor(Math.log10(a)) - 2;          // power to round to
+  const r = Math.round(v / 10 ** k) * 10 ** k;
+  const dec = Math.max(0, -k);
+  return Number(r).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: dec });
 }
-// one-significant-figure uncertainty, or null if absent
+function fmtSig(cell) { return sig3(cell.getValue()); }
+// one-significant-figure uncertainty, or null if absent/non-finite/zero
 function fmtErr1(e) {
-  if (e == null || isNaN(e) || e === 0) return null;
+  e = Number(e);
+  if (!isFinite(e) || e === 0) return null;
   e = Math.abs(e);
   if (e >= 1e5 || e < 1e-3) return e.toExponential(0);
   const d = Math.max(0, 1 - Math.floor(Math.log10(e)));
   return e.toFixed(Math.min(d, 6));
 }
-// "value ± err" (symmetric); falls back to plain value when no error
-function fmtPM(errField, p) {
+// "value ± err" (symmetric, value to 3 sig figs); plain value when no error
+function fmtPM(errField) {
   return cell => {
     const v = cell.getValue();
     if (v == null || isNaN(v)) return '';
     const es = fmtErr1(cell.getRow().getData()[errField]);
-    return es == null ? fmtVal(v, p)
-      : `${fmtVal(v, p)} <span class="pm">± ${es}</span>`;
+    return es == null ? sig3(v) : `${sig3(v)} <span class="pm">± ${es}</span>`;
   };
 }
-// Epoch is ~2.46e6 BJD: always fixed decimals (no commas / exponential), with ± err
+// Epoch (BTJD) keeps fixed decimals — precision is in the fractional part, not sig figs
 function fmtEpoch(errField, p) {
   return cell => {
     const v = cell.getValue();
@@ -173,14 +179,14 @@ function fmtEpoch(errField, p) {
   };
 }
 // "value (+errp / −errm)" (asymmetric, e.g. planet radius)
-function fmtPMasym(errpField, errmField, p) {
+function fmtPMasym(errpField, errmField) {
   return cell => {
     const v = cell.getValue();
     if (v == null || isNaN(v)) return '';
     const ep = fmtErr1(cell.getRow().getData()[errpField]);
     const em = fmtErr1(cell.getRow().getData()[errmField]);
-    if (ep == null && em == null) return fmtVal(v, p);
-    return `${fmtVal(v, p)} <span class="pm"><sup>+${ep ?? '?'}</sup><sub>−${em ?? '?'}</sub></span>`;
+    if (ep == null && em == null) return sig3(v);
+    return `${sig3(v)} <span class="pm"><sup>+${ep ?? '?'}</sup><sub>−${em ?? '?'}</sub></span>`;
   };
 }
 
