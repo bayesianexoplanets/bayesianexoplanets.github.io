@@ -55,6 +55,8 @@
   .tabulator-row.tabulator-selected { background: #dbeafe !important; }
   .tabulator-row.tabulator-selectable:hover { background: #e0e7ff !important; cursor: pointer; }
   .tabulator { font-size: 0.82rem; }
+  .tabulator-cell .pm { color: var(--muted); font-size: 0.82em; white-space: nowrap; }
+  .tabulator-cell .pm sup, .tabulator-cell .pm sub { font-size: 0.92em; line-height: 0; }
   .tabulator .tabulator-header { background: #f9fafb; font-weight: 500; }
 </style>
 </head>
@@ -83,27 +85,33 @@ const PAGES = [
   { key: 'overview',  title: 'Overview',                 md: 'overview.md',       type: 'placeholder' },
   { key: 'tess',      title: 'TESS Exoplanet Catalog',   md: 'tess.md',           type: 'table', csv: 'tois.csv',
     plot:  d => `plots/${d.TIC}/${d.known_idx}.jpg`,
-    ptitle:d => `TIC ${d.TIC} · TOI ${d.TOI} · planet ${d.known_idx + 1} · P=${(+d.Period).toFixed(4)} d, ϕ=${(+d.Phase).toFixed(4)} d, τ=${(+d.Tau).toFixed(4)} d · SNR=${(+d.SNR).toFixed(1)}` },
+    ptitle:d => `TIC ${d.TIC} · TOI ${d.TOI} · planet ${d.known_idx + 1} · P=${(+d.Period).toFixed(4)} d, Epoch=${(+d.Epoch).toFixed(4)} BJD, Dur=${(+d.Duration).toFixed(4)} d · SNR=${(+d.SNR).toFixed(1)}` },
   { key: 'tessnew',   title: 'TESS New Candidates',      md: 'tess_new.md',       type: 'table', csv: 'tois_new.csv',
     extraColumns: [{ title: 'Outlier score', field: 'outlier_score', sorter: 'number', hozAlign: 'right', width: 120, formatter: fmtNum(2) }],
     initialSort: [{ column: 'outlier_score', dir: 'desc' }],
     plot:  d => `plots_new/${d.TIC}/${d._cand_idx}.jpg`,
-    ptitle:d => `TIC ${d.TIC} · candidate idx ${d._cand_idx} · P=${(+d.Period).toFixed(4)} d, ϕ=${(+d.Phase).toFixed(4)} d, τ=${(+d.Tau).toFixed(4)} d · SNR=${(+d.SNR).toFixed(1)}` },
+    ptitle:d => `TIC ${d.TIC} · candidate idx ${d._cand_idx} · P=${(+d.Period).toFixed(4)} d, Epoch=${(+d.Epoch).toFixed(4)} BJD, Dur=${(+d.Duration).toFixed(4)} d · SNR=${(+d.SNR).toFixed(1)}` },
   { key: 'keplercat', title: 'Kepler Exoplanet Catalog', md: 'kepler_catalog.md', type: 'placeholder' },
   { key: 'keplernew', title: 'Kepler New Candidates',    md: 'kepler_new.md',     type: 'placeholder' },
 ];
 
 const COLUMNS = [
-  { title: 'TIC',        field: 'TIC',                      sorter: 'number', hozAlign: 'right', width: 110, frozen: true, formatter: fmtInt },
-  { title: 'TOI',        field: 'TOI',                      sorter: 'number', hozAlign: 'right', width: 90,  formatter: fmtNum(2) },
-  { title: 'Period [d]', field: 'Period',                   sorter: 'number', hozAlign: 'right', width: 105, formatter: fmtNum(4) },
-  { title: 'Phase [d]',  field: 'Phase',                    sorter: 'number', hozAlign: 'right', width: 105, formatter: fmtNum(4) },
-  { title: 'τ [d]',       field: 'Tau',                      sorter: 'number', hozAlign: 'right', width: 90,  formatter: fmtNum(4) },
-  { title: 'SNR',        field: 'SNR',                      sorter: 'number', hozAlign: 'right', width: 95,  formatter: fmtNum(2) },
-  { title: 'N transits', field: 'Number of Valid Transits', sorter: 'number', hozAlign: 'right', width: 100, formatter: fmtInt },
-  { title: 'log₁₀ p',    field: 'log10(p value)',           sorter: 'number', hozAlign: 'right', width: 95,  formatter: fmtNum(1) },
-  { title: 'μ(null)',    field: 'μ(SNR | null)',            sorter: 'number', hozAlign: 'right', width: 80,  formatter: fmtNum(2) },
-  { title: 'σ(null)',    field: 'σ(SNR | null)',            sorter: 'number', hozAlign: 'right', width: 80,  formatter: fmtNum(2) },
+  { title: 'TIC',         field: 'TIC',                      sorter: 'number', hozAlign: 'right', width: 110, frozen: true, formatter: fmtInt },
+  { title: 'TOI',         field: 'TOI',                      sorter: 'number', hozAlign: 'right', width: 80,  formatter: fmtNum(2) },
+  { title: 'Period [d]',  field: 'Period',                   sorter: 'number', hozAlign: 'right', width: 160, formatter: fmtPM('err_Period', 4) },
+  { title: 'Epoch [BJD]', field: 'Epoch',                    sorter: 'number', hozAlign: 'right', width: 185, formatter: fmtEpoch('err_Epoch', 4) },
+  { title: 'Duration [d]',field: 'Duration',                 sorter: 'number', hozAlign: 'right', width: 150, formatter: fmtPM('err_Duration', 4) },
+  { title: 'SNR',         field: 'SNR',                      sorter: 'number', hozAlign: 'right', width: 95,  formatter: fmtNum(2) },
+  { title: 'Rₚ [R⊕]',     field: 'Radius_planet',            sorter: 'number', hozAlign: 'right', width: 130, formatter: fmtPMasym('Radius_planet_errp', 'Radius_planet_errm', 2) },
+  { title: 'M★ [M☉]',     field: 'Mass',                     sorter: 'number', hozAlign: 'right', width: 90,  formatter: fmtNum(2) },
+  { title: 'R★ [R☉]',     field: 'Radius',                   sorter: 'number', hozAlign: 'right', width: 90,  formatter: fmtNum(2) },
+  { title: 'logg',        field: 'logg',                     sorter: 'number', hozAlign: 'right', width: 80,  formatter: fmtNum(2) },
+  { title: '[Fe/H]',      field: 'FEH',                      sorter: 'number', hozAlign: 'right', width: 80,  formatter: fmtNum(2) },
+  { title: 'Teff [K]',    field: 'Teff',                     sorter: 'number', hozAlign: 'right', width: 90,  formatter: fmtNum(0) },
+  { title: 'N transits',  field: 'Number of Valid Transits', sorter: 'number', hozAlign: 'right', width: 100, formatter: fmtInt },
+  { title: 'log₁₀ p',     field: 'log10(p value)',           sorter: 'number', hozAlign: 'right', width: 95,  formatter: fmtNum(1) },
+  { title: 'μ(null)',     field: 'μ(SNR | null)',            sorter: 'number', hozAlign: 'right', width: 80,  formatter: fmtNum(2) },
+  { title: 'σ(null)',     field: 'σ(SNR | null)',            sorter: 'number', hozAlign: 'right', width: 80,  formatter: fmtNum(2) },
 ];
 
 function parseCSV(text) {
@@ -130,6 +138,51 @@ function fmtNum(p) {
   };
 }
 function fmtInt(cell) { const v = cell.getValue(); return v == null ? '' : Number(v).toLocaleString(); }
+// numeric value, matching fmtNum's exponential/locale behaviour
+function fmtVal(v, p) {
+  if (v == null || isNaN(v)) return '';
+  if (Math.abs(v) >= 1e5 || (v !== 0 && Math.abs(v) < 1e-3)) return v.toExponential(2);
+  return Number(v).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: p });
+}
+// one-significant-figure uncertainty, or null if absent
+function fmtErr1(e) {
+  if (e == null || isNaN(e) || e === 0) return null;
+  e = Math.abs(e);
+  if (e >= 1e5 || e < 1e-3) return e.toExponential(0);
+  const d = Math.max(0, 1 - Math.floor(Math.log10(e)));
+  return e.toFixed(Math.min(d, 6));
+}
+// "value ± err" (symmetric); falls back to plain value when no error
+function fmtPM(errField, p) {
+  return cell => {
+    const v = cell.getValue();
+    if (v == null || isNaN(v)) return '';
+    const es = fmtErr1(cell.getRow().getData()[errField]);
+    return es == null ? fmtVal(v, p)
+      : `${fmtVal(v, p)} <span class="pm">± ${es}</span>`;
+  };
+}
+// Epoch is ~2.46e6 BJD: always fixed decimals (no commas / exponential), with ± err
+function fmtEpoch(errField, p) {
+  return cell => {
+    const v = cell.getValue();
+    if (v == null || isNaN(v)) return '';
+    const vs = Number(v).toFixed(p);
+    const es = fmtErr1(cell.getRow().getData()[errField]);
+    return es == null ? vs : `${vs} <span class="pm">± ${es}</span>`;
+  };
+}
+// "value (+errp / −errm)" (asymmetric, e.g. planet radius)
+function fmtPMasym(errpField, errmField, p) {
+  return cell => {
+    const v = cell.getValue();
+    if (v == null || isNaN(v)) return '';
+    const ep = fmtErr1(cell.getRow().getData()[errpField]);
+    const em = fmtErr1(cell.getRow().getData()[errmField]);
+    if (ep == null && em == null) return fmtVal(v, p);
+    return `${fmtVal(v, p)} <span class="pm"><sup>+${ep ?? '?'}</sup><sub>−${em ?? '?'}</sub></span>`;
+  };
+}
 
 // NST null-distribution: sky-blue Gaussian filled to x-axis + red dashed candidate
 // line. ylim = (0, 1.1*max). x-sampling: 1000 pts in +/-3 sigma, 500 in the
