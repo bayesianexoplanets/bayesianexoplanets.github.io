@@ -43,7 +43,8 @@ $\log g$. The conservative and optimistic habitable-zone boundaries are the
 Kopparapu (2014) polynomial fits — runaway-greenhouse to maximum-greenhouse
 (dark green) and recent-Venus to early-Mars (light green).
 
-Markers are colored by $1 - p$-value (NST). Candidates with a dashed red ring
+Markers are colored by $\log_{10}(p\text{-value})$ (NST), clipped to $[-3, 0]$
+so the unsaturated range covers the borderline regime. Candidates with a dashed red ring
 fail at least one systematics test (`spurious_transits`, `snrd`,
 `num_transits`, or `sharp_freq`). The gold stars mark the three new candidates
 sitting inside the optimistic HZ.

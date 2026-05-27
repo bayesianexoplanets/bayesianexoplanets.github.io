@@ -43,12 +43,14 @@ def insolation(rstar, logg, teff, period):
     return lum / semia**2.0
 
 
+CMAP_VMIN, CMAP_VMAX = -3.0, 0.0  # log10(p-value) clipped to this range
+
+
 def prep(df):
     need = ["Radius", "logg", "Teff", "Period"]
     d = df.dropna(subset=need).copy()
     d["S"] = insolation(d.Radius, d.logg, d.Teff, d.Period)
-    p = 10.0 ** d["log10(p value)"].astype(float)
-    d["conf"] = (1.0 - p).clip(0.0, 1.0)
+    d["log10p"] = d["log10(p value)"].astype(float).clip(CMAP_VMIN, CMAP_VMAX)
     return d
 
 
@@ -88,8 +90,8 @@ def panel(ax, df, title):
 
     scp = ax.scatter(
         d["S"].to_numpy()[order], d["Teff"].to_numpy()[order],
-        c=d["conf"].to_numpy()[order],
-        cmap="RdBu", vmin=0, vmax=1, edgecolors="k",
+        c=d["log10p"].to_numpy()[order],
+        cmap="RdBu_r", vmin=CMAP_VMIN, vmax=CMAP_VMAX, edgecolors="k",
         s=size, alpha=0.95, zorder=100,
     )
 
@@ -151,8 +153,8 @@ kw = dict(
 )
 axes[1].legend(*scp_right.legend_elements(**kw), loc=[0.72, 0.78], fontsize=18)
 
-cbh = fig.colorbar(scp_right, ax=axes, pad=0.02, fraction=0.04)
-cbh.ax.set_ylabel("1 - NST p-value", fontsize=24)
+cbh = fig.colorbar(scp_right, ax=axes, pad=0.02, fraction=0.04, extend="min")
+cbh.ax.set_ylabel(r"$\log_{10}(p\mathrm{-value})$", fontsize=24)
 cbh.ax.tick_params(labelsize=18)
 
 plt.savefig(OUT, dpi=110, bbox_inches="tight")
