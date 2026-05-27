@@ -57,6 +57,8 @@
   .tabulator { font-size: 0.82rem; }
   .tabulator-cell .pm { color: var(--muted); font-size: 0.82em; white-space: nowrap; }
   .tabulator-cell .pm sup, .tabulator-cell .pm sub { font-size: 0.92em; line-height: 0; }
+  .tabulator-cell .ok { color: #15803d; font-weight: 600; }
+  .tabulator-cell .no { color: #b91c1c; font-weight: 600; }
   .tabulator .tabulator-header { background: #f9fafb; font-weight: 500; }
 </style>
 </head>
@@ -96,6 +98,7 @@ const PAGES = [
 const COLUMNS = [
   { title: 'TIC',         field: 'TIC',                      sorter: 'number', hozAlign: 'right', width: 110, frozen: true, formatter: fmtInt },
   { title: 'TOI',         field: 'TOI',                      sorter: 'number', hozAlign: 'right', width: 80,  formatter: fmtNum(2) },
+  { title: 'Passes',      field: 'passed_all_tests',         sorter: 'boolean',hozAlign: 'center',width: 80,  formatter: fmtPass },
   { title: 'Period [d]',  field: 'Period',                   sorter: 'number', hozAlign: 'right', width: 150, formatter: fmtPM('err_Period') },
   { title: 'Epoch [BTJD]',field: 'Epoch',                    sorter: 'number', hozAlign: 'right', width: 150, formatter: fmtEpoch('err_Epoch', 4) },
   { title: 'Duration [d]',field: 'Duration',                 sorter: 'number', hozAlign: 'right', width: 140, formatter: fmtPM('err_Duration') },
@@ -135,6 +138,12 @@ function fmtNum(p) {
   };
 }
 function fmtInt(cell) { const v = cell.getValue(); return v == null ? '' : Number(v).toLocaleString(); }
+function fmtPass(cell) {
+  const v = cell.getValue();
+  if (v === true)  return '<span class="ok">✔</span>';
+  if (v === false) return '<span class="no">✗</span>';
+  return '';
+}
 // round a value to 3 significant figures for display
 function sig3(v) {
   if (v == null || isNaN(v) || !isFinite(v)) return '';
