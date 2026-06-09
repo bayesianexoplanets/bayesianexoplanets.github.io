@@ -83,16 +83,30 @@
 
 <script>
 // Each page renders its own markdown file (md) as text. Table pages also load a CSV.
+const COLUMNS_KOI = [
+  { title: 'Kepler ID',    field: 'kepid',       sorter: 'number',  hozAlign: 'right',  width: 110, frozen: true, formatter: fmtInt },
+  { title: 'KOI',          field: 'KOI',         sorter: 'number',  hozAlign: 'right',  width: 90,  formatter: fmtNum(2) },
+  { title: 'Period [d]',   field: 'period',      sorter: 'number',  hozAlign: 'right',  width: 120, formatter: fmtSig },
+  { title: 'Phase [d]',    field: 'phase',       sorter: 'number',  hozAlign: 'right',  width: 110, formatter: fmtSig },
+  { title: 'τ [d]',        field: 'tau',         sorter: 'number',  hozAlign: 'right',  width: 80,  formatter: fmtSig },
+  { title: 'SNR',          field: 'snr',         sorter: 'number',  hozAlign: 'right',  width: 95,  formatter: fmtSig },
+  { title: 'p-value',      field: 'snrd_pvalue', sorter: 'number',  hozAlign: 'right',  width: 110, formatter: fmtSig },
+  { title: 'Holczer+2016', field: 'holczer',     sorter: 'boolean', hozAlign: 'center', width: 110, formatter: fmtPass },
+];
+
 const PAGES = [
-  { key: 'overview',  title: 'Overview',                 md: 'overview.md',       type: 'placeholder' },
-  { key: 'tess',      title: 'TESS Exoplanet Catalog',   md: 'tess.md',           type: 'table', csv: 'tois.csv',
+  { key: 'overview',   title: 'Overview',                 md: 'overview.md',       type: 'placeholder' },
+  { key: 'tess',       title: 'TESS Exoplanet Catalog',   md: 'tess.md',           type: 'table', csv: 'tois.csv',
     plot:  d => `plots/${d.TIC}/${d.known_idx}.jpg`,
     ptitle:d => `TIC ${d.TIC} · TOI ${d.TOI} · planet ${d.known_idx + 1} · P=${(+d.Period).toFixed(4)} d, Epoch=${(+d.Epoch).toFixed(4)} BTJD, Dur=${(+d.Duration).toFixed(4)} d · SNR=${(+d.SNR).toFixed(1)}` },
-  { key: 'tessnew',   title: 'TESS New Candidates',      md: 'tess_new.md',       type: 'table', csv: 'tois_new.csv',
+  { key: 'tessnew',    title: 'TESS New Candidates',      md: 'tess_new.md',       type: 'table', csv: 'tois_new.csv',
     plot:  d => `plots_new/${d.TIC}/${d._cand_idx}.jpg`,
     ptitle:d => `TIC ${d.TIC} · candidate idx ${d._cand_idx} · P=${(+d.Period).toFixed(4)} d, Epoch=${(+d.Epoch).toFixed(4)} BTJD, Dur=${(+d.Duration).toFixed(4)} d · SNR=${(+d.SNR).toFixed(1)}` },
-  { key: 'keplercat', title: 'Kepler Exoplanet Catalog', md: 'kepler_catalog.md', type: 'placeholder' },
-  { key: 'keplernew', title: 'Kepler New Candidates',    md: 'kepler_new.md',     type: 'placeholder' },
+  { key: 'keplerttvs', title: 'Kepler TTVs',              md: 'kepler_ttvs.md',    type: 'table', csv: 'kepler_ttvs.csv',
+    columns: COLUMNS_KOI, initialSort: [{ column: 'snr', dir: 'desc' }],
+    filterFields: ['kepid', 'KOI'], filterPlaceholder: 'Filter Kepler ID or KOI…' },
+  { key: 'keplercat',  title: 'Kepler Exoplanet Catalog', md: 'kepler_catalog.md', type: 'placeholder' },
+  { key: 'keplernew',  title: 'Kepler New Candidates',    md: 'kepler_new.md',     type: 'placeholder' },
 ];
 
 const COLUMNS = [
@@ -252,7 +266,7 @@ function drawNull(canvas, mu, sigma, snr) {
 
 // ---- app ----
 const els = {};
-let table = null;
+let table = null, currentPage = null;
 const cacheCSV = {}, cacheMD = {};
 
 async function loadData(page) {
@@ -296,20 +310,26 @@ function showPlot(page, d) {
 }
 
 async function renderTablePage(page) {
+  currentPage = page;
   els.container.classList.remove('text-only');
   els.toolbar.style.display = 'flex';
   els.tableWrap.style.display = 'block';
   els.plotPanel.classList.remove('visible');
   els.filter.value = '';
+  els.filter.placeholder = page.filterPlaceholder || 'Filter TIC or TOI…';
+  const hintEl = document.querySelector('#toolbar .hint');
+  if (hintEl) hintEl.textContent = page.plot
+    ? 'Click any row to see its diagnostic plots · Click column headers to sort'
+    : 'Click column headers to sort';
   if (table) { table.destroy(); table = null; }
   const rows = await loadData(page);
   table = new Tabulator('#table', {
     data: rows, height: '100%', layout: 'fitDataTable',
     selectableRows: 1, movableColumns: true,
     initialSort: page.initialSort || [{ column: 'SNR', dir: 'desc' }],
-    columns: COLUMNS.concat(page.extraColumns || []),
+    columns: page.columns || COLUMNS.concat(page.extraColumns || []),
   });
-  table.on('rowClick', (e, row) => showPlot(page, row.getData()));
+  if (page.plot) table.on('rowClick', (e, row) => showPlot(page, row.getData()));
 }
 
 function renderPlaceholder() {
@@ -352,7 +372,8 @@ function main() {
     if (!table) return;
     const v = els.filter.value.trim();
     if (!v) { table.clearFilter(true); return; }
-    table.setFilter([[{ field: 'TIC', type: 'like', value: v }, { field: 'TOI', type: 'like', value: v }]]);
+    const fields = currentPage?.filterFields || ['TIC', 'TOI'];
+    table.setFilter([fields.map(f => ({ field: f, type: 'like', value: v }))]);
   });
   document.getElementById('plot-close').addEventListener('click', () => {
     els.plotPanel.classList.remove('visible');
