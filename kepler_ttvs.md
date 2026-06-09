@@ -1,17 +1,15 @@
-# Kepler TTVs
+Transit timing variations (TTVs) and transit duration variations (TDVs) for Kepler candidates. All candidates from the [NASA Exoplanet Archive](https://exoplanetarchive.ipac.caltech.edu/cgi-bin/TblView/nph-tblView?app=ExoTbls&config=cumulative), whose individual transits are significant enough (signal-to-noise ratio (SNR) > 3) and with period > 5 days are included. TTVs and TDVs were extracted as described in [Robnik et al. 2026](https://academic.oup.com/mnras/article/547/3/stag419/8527731).
 
-Transit timing variations (TTVs) detected in Kepler light curves using a Bayesian SNRD test.
-The catalog contains 1,016 planet candidates. The **p-value** column gives the probability of observing
-the measured SNRD under the null hypothesis of no TTVs; small values indicate significant TTV signal.
-**Holczer+2016** marks candidates also reported in the [Holczer et al. (2016)](https://doi.org/10.3847/0067-0049/225/1/9) TTV catalog.
+To identify significant TTVs we perform a $\chi^2$ test: we test the hypothesis that the signal-to-noise-ratio (SNR) of the planet's individual transits at their expected (periodic) ephemeris is consistent with no TTVs. Low p-value indicates that this is not the case and can be used to identify significant TTVs; we use p-value < 0.01 as a threshold.
+
+Candidates that were identified by [Holczer et al. (2016)](https://iopscience.iop.org/article/10.3847/0067-0049/225/1/9) as having significant TTVs are also flagged.
 
 | Column | Description |
 |---|---|
 | Kepler ID | Kepler Input Catalog identifier |
 | KOI | Kepler Object of Interest number |
 | Period [d] | Orbital period in days |
-| Phase [d] | Reference transit time (days) |
 | τ [d] | Transit duration in days |
 | SNR | Signal-to-noise ratio of the transit |
-| p-value | SNRD test p-value for TTV significance |
+| p-value | SNRD test p-value for TTV significance (shown as 0 when < 10⁻⁶) |
 | Holczer+2016 | Detected as TTV signal in Holczer et al. (2016) |

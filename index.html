@@ -84,14 +84,13 @@
 <script>
 // Each page renders its own markdown file (md) as text. Table pages also load a CSV.
 const COLUMNS_KOI = [
-  { title: 'Kepler ID',    field: 'kepid',       sorter: 'number',  hozAlign: 'right',  width: 110, frozen: true, formatter: fmtInt },
-  { title: 'KOI',          field: 'KOI',         sorter: 'number',  hozAlign: 'right',  width: 90,  formatter: fmtNum(2) },
-  { title: 'Period [d]',   field: 'period',      sorter: 'number',  hozAlign: 'right',  width: 120, formatter: fmtSig },
-  { title: 'Phase [d]',    field: 'phase',       sorter: 'number',  hozAlign: 'right',  width: 110, formatter: fmtSig },
-  { title: 'τ [d]',        field: 'tau',         sorter: 'number',  hozAlign: 'right',  width: 80,  formatter: fmtSig },
-  { title: 'SNR',          field: 'snr',         sorter: 'number',  hozAlign: 'right',  width: 95,  formatter: fmtSig },
-  { title: 'p-value',      field: 'snrd_pvalue', sorter: 'number',  hozAlign: 'right',  width: 110, formatter: fmtSig },
-  { title: 'Holczer+2016', field: 'holczer',     sorter: 'boolean', hozAlign: 'center', width: 110, formatter: fmtPass },
+  { title: 'Kepler ID',        field: 'kepid',            sorter: 'number',  hozAlign: 'right',  width: 110, frozen: true, formatter: fmtInt },
+  { title: 'KOI',              field: 'KOI',              sorter: 'number',  hozAlign: 'right',  width: 90,  formatter: fmtNum(2) },
+  { title: 'Period [d]',       field: 'period',           sorter: 'number',  hozAlign: 'right',  width: 120, formatter: fmtSig },
+  { title: 'τ [d]',            field: 'transit_duration', sorter: 'number',  hozAlign: 'right',  width: 80,  formatter: fmtSig },
+  { title: 'SNR',              field: 'snr',              sorter: 'number',  hozAlign: 'right',  width: 95,  formatter: fmtSig },
+  { title: 'p-value',          field: 'snrd_pvalue',      sorter: 'number',  hozAlign: 'right',  width: 110, formatter: fmtSig },
+  { title: 'Holczer+2016',     field: 'holczer',          sorter: 'boolean', hozAlign: 'center', width: 110, formatter: fmtPass },
 ];
 
 const PAGES = [
@@ -102,11 +101,11 @@ const PAGES = [
   { key: 'tessnew',    title: 'TESS New Candidates',      md: 'tess_new.md',       type: 'table', csv: 'tois_new.csv',
     plot:  d => `plots_new/${d.TIC}/${d._cand_idx}.jpg`,
     ptitle:d => `TIC ${d.TIC} · candidate idx ${d._cand_idx} · P=${(+d.Period).toFixed(4)} d, Epoch=${(+d.Epoch).toFixed(4)} BTJD, Dur=${(+d.Duration).toFixed(4)} d · SNR=${(+d.SNR).toFixed(1)}` },
+  { key: 'keplercat',  title: 'Kepler Exoplanet Catalog', md: 'kepler_catalog.md', type: 'placeholder' },
+  { key: 'keplernew',  title: 'Kepler New Candidates',    md: 'kepler_new.md',     type: 'placeholder' },
   { key: 'keplerttvs', title: 'Kepler TTVs',              md: 'kepler_ttvs.md',    type: 'table', csv: 'kepler_ttvs.csv',
     columns: COLUMNS_KOI, initialSort: [{ column: 'snr', dir: 'desc' }],
     filterFields: ['kepid', 'KOI'], filterPlaceholder: 'Filter Kepler ID or KOI…' },
-  { key: 'keplercat',  title: 'Kepler Exoplanet Catalog', md: 'kepler_catalog.md', type: 'placeholder' },
-  { key: 'keplernew',  title: 'Kepler New Candidates',    md: 'kepler_new.md',     type: 'placeholder' },
 ];
 
 const COLUMNS = [
