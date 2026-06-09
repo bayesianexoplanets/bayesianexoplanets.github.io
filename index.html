@@ -42,6 +42,9 @@
   #toolbar { padding: 8px 20px; background: #f3f4f6; border-bottom: 1px solid var(--border); display: flex; gap: 12px; align-items: center; font-size: 0.85rem; }
   #toolbar input { padding: 4px 10px; font-size: 0.85rem; width: 280px; border: 1px solid var(--border); border-radius: 4px; }
   #toolbar .hint { color: var(--muted); }
+  #downloads { display: flex; gap: 8px; margin-left: auto; }
+  .dl-btn { display: inline-flex; align-items: center; padding: 3px 10px; font-size: 0.82rem; border: 1px solid var(--border); border-radius: 4px; background: #fff; color: #374151; text-decoration: none; white-space: nowrap; }
+  .dl-btn:hover { background: #f3f4f6; color: #111; border-color: #9ca3af; }
   #table-wrap { flex: 1 1 auto; min-height: 200px; padding: 0 20px; overflow: hidden; }
   #table { height: 100%; }
   #plot-panel { flex: 0 0 auto; position: relative; padding: 10px 20px 16px; background: var(--panel); border-top: 1px solid var(--border); display: none; }
@@ -72,6 +75,7 @@
   <div id="toolbar" style="display:none">
     <input id="filter" placeholder="Filter TIC or TOI…" autocomplete="off">
     <span class="hint">Click any row to see its diagnostic plots · Click column headers to sort</span>
+    <div id="downloads"></div>
   </div>
   <div id="table-wrap" style="display:none"><div id="table"></div></div>
   <div id="plot-panel">
@@ -105,7 +109,8 @@ const PAGES = [
   { key: 'keplernew',  title: 'Kepler New Candidates',    md: 'kepler_new.md',     type: 'placeholder' },
   { key: 'keplerttvs', title: 'Kepler TTVs',              md: 'kepler_ttvs.md',    type: 'table', csv: 'kepler_ttvs.csv',
     columns: COLUMNS_KOI, initialSort: [{ column: 'snr', dir: 'desc' }],
-    filterFields: ['kepid', 'KOI'], filterPlaceholder: 'Filter Kepler ID or KOI…' },
+    filterFields: ['kepid', 'KOI'], filterPlaceholder: 'Filter Kepler ID or KOI…',
+    downloads: [{ label: 'Download TTVs', file: 'kepler_ttvs.zip' }, { label: 'Download Table', file: 'kepler_ttvs.csv' }] },
 ];
 
 const COLUMNS = [
@@ -320,6 +325,13 @@ async function renderTablePage(page) {
   if (hintEl) hintEl.textContent = page.plot
     ? 'Click any row to see its diagnostic plots · Click column headers to sort'
     : 'Click column headers to sort';
+  const dlEl = document.getElementById('downloads');
+  dlEl.innerHTML = '';
+  (page.downloads || []).forEach(({ label, file }) => {
+    const a = document.createElement('a');
+    a.className = 'dl-btn'; a.textContent = label; a.href = file; a.download = file;
+    dlEl.appendChild(a);
+  });
   if (table) { table.destroy(); table = null; }
   const rows = await loadData(page);
   table = new Tabulator('#table', {
