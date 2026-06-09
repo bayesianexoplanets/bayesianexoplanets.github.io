@@ -107,10 +107,10 @@ const PAGES = [
     ptitle:d => `TIC ${d.TIC} · candidate idx ${d._cand_idx} · P=${(+d.Period).toFixed(4)} d, Epoch=${(+d.Epoch).toFixed(4)} BTJD, Dur=${(+d.Duration).toFixed(4)} d · SNR=${(+d.SNR).toFixed(1)}` },
   { key: 'keplercat',  title: 'Kepler Exoplanet Catalog', md: 'kepler_catalog.md', type: 'placeholder' },
   { key: 'keplernew',  title: 'Kepler New Candidates',    md: 'kepler_new.md',     type: 'placeholder' },
-  { key: 'keplerttvs', title: 'Kepler TTVs',              md: 'kepler_ttvs.md',    type: 'table', csv: 'kepler_ttvs.csv',
+  { key: 'keplerttvs', title: 'Kepler TTVs',              md: 'kepler_ttvs.md',    type: 'table', csv: 'kepler_ttvs_overview.csv',
     columns: COLUMNS_KOI, initialSort: [{ column: 'snr', dir: 'desc' }],
     filterFields: ['kepid', 'KOI'], filterPlaceholder: 'Filter Kepler ID or KOI…',
-    downloads: [{ label: 'Download TTVs', file: 'kepler_ttvs.zip' }, { label: 'Download Table', file: 'kepler_ttvs.csv' }] },
+    downloads: [{ label: 'Download TTVs', file: 'kepler_ttvs.zip' }, { label: 'Download Table', file: 'kepler_ttvs_overview.csv' }] },
 ];
 
 const COLUMNS = [
