@@ -110,7 +110,10 @@ const PAGES = [
   { key: 'keplerttvs', title: 'Kepler TTVs',              md: 'kepler_ttvs.md',    type: 'table', csv: 'kepler_ttvs_overview.csv',
     columns: COLUMNS_KOI, initialSort: [{ column: 'snr', dir: 'desc' }],
     filterFields: ['kepid', 'KOI'], filterPlaceholder: 'Filter Kepler ID or KOI…',
-    downloads: [{ label: 'Download TTVs', file: 'kepler_ttvs.zip' }, { label: 'Download Table', file: 'kepler_ttvs_overview.csv' }] },
+    downloads: [{ label: 'Download TTVs', file: 'kepler_ttvs.zip' }, { label: 'Download Table', file: 'kepler_ttvs_overview.csv' }],
+    plot:  d => `plots_kepler_ttvs/${d.KOI}.png`,
+    ptitle:d => `KOI ${d.KOI} · P=${(+d.period).toFixed(4)} d · SNR=${(+d.snr).toFixed(1)}`,
+    nst: false },
 ];
 
 const COLUMNS = [
@@ -307,9 +310,14 @@ async function loadPageText(page) {
 
 function showPlot(page, d) {
   els.plotImg.src = page.plot(d);
-  els.plotImg.alt = `TIC ${d.TIC}`;
+  els.plotImg.alt = page.ptitle(d);
   els.plotTitle.textContent = page.ptitle(d);
-  drawNull(els.nst, d['μ(SNR | null)'], d['σ(SNR | null)'], d.SNR);
+  if (page.nst === false) {
+    els.nst.style.display = 'none';
+  } else {
+    els.nst.style.display = '';
+    drawNull(els.nst, d['μ(SNR | null)'], d['σ(SNR | null)'], d.SNR);
+  }
   els.plotPanel.classList.add('visible');
 }
 
