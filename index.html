@@ -10,6 +10,7 @@
 <script src="https://cdn.jsdelivr.net/npm/marked@12/marked.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 <style>
   :root { --bg:#fafafa; --panel:#fff; --border:#ddd; --muted:#6b7280; --accent:#2563eb; }
   * { box-sizing: border-box; }
@@ -22,7 +23,6 @@
   nav a { color: #cbd5e1; cursor: pointer; font-size: 0.88rem; text-decoration: none; padding: 2px 0; border-bottom: 2px solid transparent; white-space: nowrap; }
   nav a:hover { color: #fff; }
   nav a.active { color: #fff; font-weight: 600; border-bottom-color: #fff; }
-  /* per-page markdown text */
   #pagetext { flex: 0 0 auto; max-height: 42vh; overflow: auto; padding: 14px 24px; background: #fff;
               border-bottom: 1px solid var(--border); font-size: 0.95rem; line-height: 1.6; color: #1f2937; }
   .container.text-only #pagetext { flex: 1 1 auto; max-height: none; }
@@ -39,10 +39,21 @@
   #pagetext img { max-width: 100%; }
   #pagetext table { border-collapse: collapse; }
   #pagetext th, #pagetext td { border: 1px solid var(--border); padding: 4px 8px; }
+  /* OoD chart panel */
+  #ood-panel { flex: 0 0 auto; padding: 8px 20px 10px; background: #f9fafb; border-bottom: 1px solid var(--border); }
+  #ood-controls { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; font-size: 0.85rem; margin-bottom: 6px; }
+  #ood-controls label { color: #374151; display: flex; align-items: center; gap: 5px; }
+  #ood-controls select { padding: 3px 8px; font-size: 0.85rem; border: 1px solid var(--border); border-radius: 4px; background: #fff; }
+  #ood-controls select:disabled { background: #f3f4f6; color: var(--muted); }
+  #ood-controls .hint { color: var(--muted); font-size: 0.8rem; }
+  #ood-chart-wrap { height: 260px; position: relative; }
+  /* toolbar */
   #toolbar { padding: 8px 20px; background: #f3f4f6; border-bottom: 1px solid var(--border); display: flex; gap: 12px; align-items: center; font-size: 0.85rem; }
   #toolbar input { padding: 4px 10px; font-size: 0.85rem; width: 280px; border: 1px solid var(--border); border-radius: 4px; }
   #toolbar .hint { color: var(--muted); }
-  #downloads { display: flex; gap: 8px; margin-left: auto; }
+  #download-btn { padding: 4px 12px; font-size: 0.82rem; border: 1px solid var(--border); border-radius: 4px; background: #fff; cursor: pointer; color: #374151; white-space: nowrap; }
+  #download-btn:hover { background: #e5e7eb; }
+  #downloads { display: flex; gap: 8px; }
   .dl-btn { display: inline-flex; align-items: center; padding: 3px 10px; font-size: 0.82rem; border: 1px solid var(--border); border-radius: 4px; background: #fff; color: #374151; text-decoration: none; white-space: nowrap; }
   .dl-btn:hover { background: #f3f4f6; color: #111; border-color: #9ca3af; }
   #table-wrap { flex: 1 1 auto; min-height: 200px; padding: 0 20px; overflow: hidden; }
@@ -63,6 +74,7 @@
   .tabulator-cell .ok { color: #15803d; font-weight: 600; }
   .tabulator-cell .no { color: #b91c1c; font-weight: 600; }
   .tabulator .tabulator-header { background: #f9fafb; font-weight: 500; }
+  .fail-badge { background: #fee2e2; color: #b91c1c; border-radius: 3px; padding: 1px 5px; font-size: 0.78em; white-space: nowrap; margin-right: 2px; display: inline-block; }
 </style>
 </head>
 <body>
@@ -72,39 +84,56 @@
     <nav id="nav"></nav>
   </header>
   <div id="pagetext"></div>
+  <div id="ood-panel" style="display:none">
+    <div id="ood-controls">
+      <label>X: <select id="ood-x"></select></label>
+      <span id="ood-y-label" style="display:flex;align-items:center;gap:5px">Y: <select id="ood-y"></select></span>
+      <label><input type="radio" name="ood-type" value="scatter" checked> Scatter</label>
+      <label><input type="radio" name="ood-type" value="histogram"> Histogram</label>
+      <span class="hint">Orange stars = OoD candidates &mdash; click to view diagnostic plots</span>
+    </div>
+    <div id="ood-chart-wrap"><canvas id="ood-chart"></canvas></div>
+  </div>
   <div id="toolbar" style="display:none">
-    <input id="filter" placeholder="Filter TIC or TOI…" autocomplete="off">
-    <span class="hint">Click any row to see its diagnostic plots · Click column headers to sort</span>
+    <input id="filter" placeholder="Filter TIC or TOI&hellip;" autocomplete="off">
+    <button id="download-btn" type="button" style="display:none">&#8595; CSV</button>
     <div id="downloads"></div>
+    <span class="hint">Click any row to see its diagnostic plots &middot; Click column headers to sort</span>
   </div>
   <div id="table-wrap" style="display:none"><div id="table"></div></div>
   <div id="plot-panel">
-    <button id="plot-close" type="button" aria-label="Close plot">×</button>
+    <button id="plot-close" type="button" aria-label="Close plot">&times;</button>
     <h2 id="plot-title"></h2>
     <div id="plot-wrap"><img id="plot" alt=""><canvas id="nst"></canvas></div>
   </div>
 </div>
 
 <script>
-// Each page renders its own markdown file (md) as text. Table pages also load a CSV.
 const COLUMNS_KOI = [
-  { title: 'Kepler ID',        field: 'kepid',            sorter: 'number',  hozAlign: 'right',  width: 110, frozen: true, formatter: fmtInt },
-  { title: 'KOI',              field: 'KOI',              sorter: 'number',  hozAlign: 'right',  width: 90,  formatter: fmtNum(2) },
-  { title: 'Period [d]',       field: 'period',           sorter: 'number',  hozAlign: 'right',  width: 120, formatter: fmtSig },
-  { title: 'τ [d]',            field: 'transit_duration', sorter: 'number',  hozAlign: 'right',  width: 80,  formatter: fmtSig },
-  { title: 'SNR',              field: 'snr',              sorter: 'number',  hozAlign: 'right',  width: 95,  formatter: fmtSig },
-  { title: 'p-value',          field: 'snrd_pvalue',      sorter: 'number',  hozAlign: 'right',  width: 110, formatter: fmtSig },
-  { title: 'Holczer+2016',     field: 'holczer',          sorter: 'boolean', hozAlign: 'center', width: 110, formatter: fmtPass },
+  { title: 'Kepler ID',    field: 'kepid',            sorter: 'number',  hozAlign: 'right',  width: 110, frozen: true, formatter: fmtInt },
+  { title: 'KOI',          field: 'KOI',              sorter: 'number',  hozAlign: 'right',  width: 90,  formatter: fmtNum(2) },
+  { title: 'Period [d]',   field: 'period',           sorter: 'number',  hozAlign: 'right',  width: 120, formatter: fmtSig },
+  { title: 'τ [d]',        field: 'transit_duration', sorter: 'number',  hozAlign: 'right',  width: 80,  formatter: fmtSig },
+  { title: 'SNR',          field: 'snr',              sorter: 'number',  hozAlign: 'right',  width: 95,  formatter: fmtSig },
+  { title: 'p-value',      field: 'snrd_pvalue',      sorter: 'number',  hozAlign: 'right',  width: 110, formatter: fmtSig },
+  { title: 'Holczer+2016', field: 'holczer',          sorter: 'boolean', hozAlign: 'center', width: 110, formatter: fmtPass },
 ];
 
 const PAGES = [
-  { key: 'overview',   title: 'Overview',                 md: 'overview.md',       type: 'placeholder' },
-  { key: 'tess',       title: 'TESS Exoplanet Catalog',   md: 'tess.md',           type: 'table', csv: 'tois.csv',
+  { key: 'overview',  title: 'Overview',                 md: 'overview.md',       type: 'placeholder' },
+  { key: 'tess',      title: 'TESS Exoplanet Catalog',   md: 'tess.md',           type: 'table', csv: 'tois.csv',
+    downloadFilename: 'tess_exoplanet_catalog.csv',
     plot:  d => `plots/${d.TIC}/${d.known_idx}.jpg`,
     ptitle:d => `TIC ${d.TIC} · TOI ${d.TOI} · planet ${d.known_idx + 1} · P=${(+d.Period).toFixed(4)} d, Epoch=${(+d.Epoch).toFixed(4)} BTJD, Dur=${(+d.Duration).toFixed(4)} d · SNR=${(+d.SNR).toFixed(1)}` },
-  { key: 'tessnew',    title: 'TESS New Candidates',      md: 'tess_new.md',       type: 'table', csv: 'tois_new.csv',
+  { key: 'tessnew',   title: 'TESS New Candidates',      md: 'tess_new.md',       type: 'table', csv: 'tois_new.csv',
+    downloadFilename: 'tess_new_candidates.csv',
+    hasOodChart: true,
+    colOverrides: { TOI: { visible: false } },
+    extraColumns: [
+      { title: 'Proposed TOI', field: 'proposed_toi', sorter: 'number', hozAlign: 'right', width: 110, formatter: fmtTOI, _after: 'TIC' },
+    ],
     plot:  d => `plots_new/${d.TIC}/${d._cand_idx}.jpg`,
-    ptitle:d => `TIC ${d.TIC} · candidate idx ${d._cand_idx} · P=${(+d.Period).toFixed(4)} d, Epoch=${(+d.Epoch).toFixed(4)} BTJD, Dur=${(+d.Duration).toFixed(4)} d · SNR=${(+d.SNR).toFixed(1)}` },
+    ptitle:d => `TIC ${d.TIC} · proposed TOI ${d.proposed_toi != null ? Number(d.proposed_toi).toFixed(2) : ''} · P=${(+d.Period).toFixed(4)} d, Epoch=${(+d.Epoch).toFixed(4)} BTJD, Dur=${(+d.Duration).toFixed(4)} d · SNR=${(+d.SNR).toFixed(1)}` },
   { key: 'keplercat',  title: 'Kepler Exoplanet Catalog', md: 'kepler_catalog.md', type: 'placeholder' },
   { key: 'keplernew',  title: 'Kepler New Candidates',    md: 'kepler_new.md',     type: 'placeholder' },
   { key: 'keplerttvs', title: 'Kepler TTVs',              md: 'kepler_ttvs.md',    type: 'table', csv: 'kepler_ttvs_overview.csv',
@@ -117,23 +146,40 @@ const PAGES = [
 ];
 
 const COLUMNS = [
-  { title: 'TIC',         field: 'TIC',                      sorter: 'number', hozAlign: 'right', width: 110, frozen: true, formatter: fmtInt },
-  { title: 'TOI',         field: 'TOI',                      sorter: 'number', hozAlign: 'right', width: 80,  formatter: fmtNum(2) },
-  { title: 'Passes',      field: 'passed_all_tests',         sorter: 'boolean',hozAlign: 'center',width: 80,  formatter: fmtPass },
-  { title: 'Period [d]',  field: 'Period',                   sorter: 'number', hozAlign: 'right', width: 150, formatter: fmtPM('err_Period') },
-  { title: 'Epoch [BTJD]',field: 'Epoch',                    sorter: 'number', hozAlign: 'right', width: 150, formatter: fmtEpoch('err_Epoch', 4) },
-  { title: 'Duration [d]',field: 'Duration',                 sorter: 'number', hozAlign: 'right', width: 140, formatter: fmtPM('err_Duration') },
-  { title: 'SNR',         field: 'SNR',                      sorter: 'number', hozAlign: 'right', width: 95,  formatter: fmtSig },
-  { title: 'Rₚ [R⊕]',     field: 'Radius_planet',            sorter: 'number', hozAlign: 'right', width: 130, formatter: fmtPMasym('Radius_planet_errp', 'Radius_planet_errm') },
-  { title: 'M★ [M☉]',     field: 'Mass',                     sorter: 'number', hozAlign: 'right', width: 90,  formatter: fmtSig },
-  { title: 'R★ [R☉]',     field: 'Radius',                   sorter: 'number', hozAlign: 'right', width: 90,  formatter: fmtSig },
-  { title: 'logg',        field: 'logg',                     sorter: 'number', hozAlign: 'right', width: 80,  formatter: fmtSig },
-  { title: '[Fe/H]',      field: 'FEH',                      sorter: 'number', hozAlign: 'right', width: 80,  formatter: fmtSig },
-  { title: 'Teff [K]',    field: 'Teff',                     sorter: 'number', hozAlign: 'right', width: 90,  formatter: fmtSig },
-  { title: 'log₁₀ p',     field: 'log10(p value)',           sorter: 'number', hozAlign: 'right', width: 95,  formatter: fmtSig },
-  { title: 'μ(null)',     field: 'μ(SNR | null)',            sorter: 'number', hozAlign: 'right', width: 80,  formatter: fmtSig },
-  { title: 'σ(null)',     field: 'σ(SNR | null)',            sorter: 'number', hozAlign: 'right', width: 80,  formatter: fmtSig },
+  { title: 'TIC',         field: 'TIC',                 sorter: 'number',  hozAlign: 'right',  width: 110, frozen: true, formatter: fmtInt },
+  { title: 'TOI',         field: 'TOI',                 sorter: 'number',  hozAlign: 'right',  width: 80,  formatter: fmtNum(2) },
+  { title: 'Passes',      field: 'passed_all_tests',    sorter: 'boolean', hozAlign: 'center', width: 70,  formatter: fmtPass },
+  { title: 'Failed',      field: 'failed_tests',        sorter: 'string',  hozAlign: 'left',   width: 145, formatter: fmtFailed },
+  { title: 'Period [d]',  field: 'Period',               sorter: 'number',  hozAlign: 'right',  width: 150, formatter: fmtPM('err_Period') },
+  { title: 'Epoch [BTJD]',field: 'Epoch',                sorter: 'number',  hozAlign: 'right',  width: 150, formatter: fmtEpoch('err_Epoch', 4) },
+  { title: 'Duration [d]',field: 'Duration',             sorter: 'number',  hozAlign: 'right',  width: 140, formatter: fmtPM('err_Duration') },
+  { title: 'SNR',         field: 'SNR',                  sorter: 'number',  hozAlign: 'right',  width: 95,  formatter: fmtSig },
+  { title: 'Rₚ [R⊕]', field: 'Radius_planet',  sorter: 'number',  hozAlign: 'right',  width: 130, formatter: fmtPMasym('Radius_planet_errp', 'Radius_planet_errm') },
+  { title: 'M★ [M☉]', field: 'Mass',           sorter: 'number',  hozAlign: 'right',  width: 90,  formatter: fmtSig },
+  { title: 'R★ [R☉]', field: 'Radius',         sorter: 'number',  hozAlign: 'right',  width: 90,  formatter: fmtSig },
+  { title: 'logg',        field: 'logg',                 sorter: 'number',  hozAlign: 'right',  width: 80,  formatter: fmtSig },
+  { title: '[Fe/H]',      field: 'FEH',                  sorter: 'number',  hozAlign: 'right',  width: 80,  formatter: fmtSig },
+  { title: 'Teff [K]',    field: 'Teff',                 sorter: 'number',  hozAlign: 'right',  width: 90,  formatter: fmtSig },
+  { title: 'log₁₀ p', field: 'log10(p value)', sorter: 'number',  hozAlign: 'right',  width: 95,  formatter: fmtSig },
+  { title: 'μ(null)', field: 'μ(SNR | null)',   sorter: 'number',  hozAlign: 'right',  width: 80,  formatter: fmtSig },
+  { title: 'σ(null)', field: 'σ(SNR | null)',   sorter: 'number',  hozAlign: 'right',  width: 80,  formatter: fmtSig },
 ];
+
+function buildColumns(page) {
+  const ovr = page.colOverrides || {};
+  let cols = COLUMNS.map(c => ovr[c.field] ? Object.assign({}, c, ovr[c.field]) : c);
+  for (const xc of (page.extraColumns || [])) {
+    const after = xc._after;
+    const col = Object.assign({}, xc);
+    delete col._after;
+    if (after != null) {
+      const idx = cols.findIndex(c => c.field === after);
+      if (idx >= 0) { cols.splice(idx + 1, 0, col); continue; }
+    }
+    cols.push(col);
+  }
+  return cols;
+}
 
 function parseCSV(text) {
   const lines = text.replace(/\r/g, '').split('\n').filter(l => l.length);
@@ -150,6 +196,7 @@ function parseCSV(text) {
     return obj;
   });
 }
+
 function fmtNum(p) {
   return cell => {
     const v = cell.getValue();
@@ -159,25 +206,29 @@ function fmtNum(p) {
   };
 }
 function fmtInt(cell) { const v = cell.getValue(); return v == null ? '' : Number(v).toLocaleString(); }
+function fmtTOI(cell) { const v = cell.getValue(); return (v == null || isNaN(v)) ? '' : Number(v).toFixed(2); }
 function fmtPass(cell) {
   const v = cell.getValue();
-  if (v === true)  return '<span class="ok">✔</span>';
-  if (v === false) return '<span class="no">✗</span>';
+  if (v === true)  return '<span class="ok">&#10004;</span>';
+  if (v === false) return '<span class="no">&#10008;</span>';
   return '';
 }
-// round a value to 3 significant figures for display
+function fmtFailed(cell) {
+  const v = cell.getValue();
+  if (!v) return '';
+  return v.split(',').map(t => `<span class="fail-badge">${t.trim()}</span>`).join('');
+}
 function sig3(v) {
   if (v == null || isNaN(v) || !isFinite(v)) return '';
   if (v === 0) return '0';
   const a = Math.abs(v);
   if (a >= 1e6 || a < 1e-4) return v.toExponential(2);
-  const k = Math.floor(Math.log10(a)) - 2;          // power to round to
+  const k = Math.floor(Math.log10(a)) - 2;
   const r = Math.round(v / 10 ** k) * 10 ** k;
   const dec = Math.max(0, -k);
   return Number(r).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: dec });
 }
 function fmtSig(cell) { return sig3(cell.getValue()); }
-// one-significant-figure uncertainty, or null if absent/non-finite/zero
 function fmtErr1(e) {
   e = Number(e);
   if (!isFinite(e) || e === 0) return null;
@@ -186,26 +237,23 @@ function fmtErr1(e) {
   const d = Math.max(0, 1 - Math.floor(Math.log10(e)));
   return e.toFixed(Math.min(d, 6));
 }
-// "value ± err" (symmetric, value to 3 sig figs); plain value when no error
 function fmtPM(errField) {
   return cell => {
     const v = cell.getValue();
     if (v == null || isNaN(v)) return '';
     const es = fmtErr1(cell.getRow().getData()[errField]);
-    return es == null ? sig3(v) : `${sig3(v)} <span class="pm">± ${es}</span>`;
+    return es == null ? sig3(v) : `${sig3(v)} <span class="pm">&plusmn; ${es}</span>`;
   };
 }
-// Epoch (BTJD) keeps fixed decimals — precision is in the fractional part, not sig figs
 function fmtEpoch(errField, p) {
   return cell => {
     const v = cell.getValue();
     if (v == null || isNaN(v)) return '';
     const vs = Number(v).toFixed(p);
     const es = fmtErr1(cell.getRow().getData()[errField]);
-    return es == null ? vs : `${vs} <span class="pm">± ${es}</span>`;
+    return es == null ? vs : `${vs} <span class="pm">&plusmn; ${es}</span>`;
   };
 }
-// "value (+errp / −errm)" (asymmetric, e.g. planet radius)
 function fmtPMasym(errpField, errmField) {
   return cell => {
     const v = cell.getValue();
@@ -213,14 +261,20 @@ function fmtPMasym(errpField, errmField) {
     const ep = fmtErr1(cell.getRow().getData()[errpField]);
     const em = fmtErr1(cell.getRow().getData()[errmField]);
     if (ep == null && em == null) return sig3(v);
-    return `${sig3(v)} <span class="pm"><sup>+${ep ?? '?'}</sup><sub>−${em ?? '?'}</sub></span>`;
+    return `${sig3(v)} <span class="pm"><sup>+${ep ?? '?'}</sup><sub>&minus;${em ?? '?'}</sub></span>`;
   };
 }
 
-// NST null-distribution: sky-blue Gaussian filled to x-axis + red dashed candidate
-// line. ylim = (0, 1.1*max). x-sampling: 1000 pts in +/-3 sigma, 500 in the
-// 3..5 sigma shell, 100 in the rest (to plot bounds), + the candidate point.
-function drawNull(canvas, mu, sigma, snr) {
+// NST null distribution: empirical CDF (step function) + fitted Gaussian CDF
+function normcdf(z) {
+  // Φ(z) using Horner's method for erf approximation
+  const t = 1 / (1 + 0.3275911 * Math.abs(z / Math.SQRT2));
+  const poly = t * (0.254829592 + t * (-0.284496736 + t * (1.421413741 + t * (-1.453152027 + t * 1.061405429))));
+  const erf = (1 - poly * Math.exp(-(z / Math.SQRT2) ** 2)) * (z < 0 ? -1 : 1);
+  return 0.5 * (1 + erf);
+}
+
+function drawNullCDF(canvas, mu, sigma, snr, nstSamplesStr) {
   const W = 1300, H = 800, ctx = canvas.getContext('2d');
   canvas.width = W; canvas.height = H;
   ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, W, H);
@@ -229,49 +283,240 @@ function drawNull(canvas, mu, sigma, snr) {
     ctx.fillText('No null-simulation (NST) data for this candidate', W / 2, H / 2);
     return;
   }
-  const px0 = 80, px1 = W - 40, py0 = 40, py1 = H - 95;
+
+  const xs = (nstSamplesStr || '').split('|').map(Number).filter(v => isFinite(v)).sort((a, b) => a - b);
+  const hasEmp = xs.length >= 3;
+
+  const px0 = 90, px1 = W - 40, py0 = 40, py1 = H - 95;
   let lo = Math.min(mu - 5 * sigma, snr), hi = Math.max(mu + 5 * sigma, snr);
+  if (hasEmp) { lo = Math.min(lo, xs[0]); hi = Math.max(hi, xs[xs.length - 1]); }
   const pad = 0.08 * (hi - lo) || 1; lo -= pad; hi += pad;
   const X = x => px0 + (x - lo) / (hi - lo) * (px1 - px0);
-  const g = x => Math.exp(-0.5 * ((x - mu) / sigma) ** 2);
-  const Y = y => py1 - (y / 1.1) * (py1 - py0);
+  const Y = y => py1 - y * (py1 - py0);
 
-  const c0 = Math.max(lo, mu - 3 * sigma), c1 = Math.min(hi, mu + 3 * sigma);
-  const f0 = Math.max(lo, mu - 5 * sigma), f1 = Math.min(hi, mu + 5 * sigma);
-  const seg = (x0, x1, n, arr) => { if (x1 > x0) for (let i = 0; i <= n; i++) arr.push(x0 + (x1 - x0) * i / n); };
-  let xs = [];
-  seg(lo, f0, 50, xs); seg(f0, c0, 250, xs); seg(c0, c1, 1000, xs); seg(c1, f1, 250, xs); seg(f1, hi, 50, xs);
-  xs.push(snr, lo, hi);
-  xs = [...new Set(xs)].filter(x => x >= lo && x <= hi).sort((p, q) => p - q);
-
-  ctx.beginPath(); ctx.moveTo(X(lo), py1);
-  for (const x of xs) ctx.lineTo(X(x), Y(g(x)));
-  ctx.lineTo(X(hi), py1); ctx.closePath();
-  ctx.fillStyle = 'rgba(135,206,235,0.55)'; ctx.fill();
+  // Gaussian CDF
+  const NPTS = 600;
   ctx.beginPath();
-  xs.forEach((x, i) => { const xx = X(x), yy = Y(g(x)); i ? ctx.lineTo(xx, yy) : ctx.moveTo(xx, yy); });
-  ctx.strokeStyle = '#3a9bd5'; ctx.lineWidth = 3; ctx.stroke();
+  for (let i = 0; i <= NPTS; i++) {
+    const x = lo + (hi - lo) * i / NPTS;
+    const y = normcdf((x - mu) / sigma);
+    i === 0 ? ctx.moveTo(X(x), Y(y)) : ctx.lineTo(X(x), Y(y));
+  }
+  ctx.strokeStyle = '#3a9bd5'; ctx.lineWidth = 3; ctx.setLineDash([]); ctx.stroke();
+
+  // Empirical CDF (step function + dots)
+  if (hasEmp) {
+    const n = xs.length;
+    ctx.beginPath();
+    ctx.moveTo(X(lo), Y(0));
+    ctx.lineTo(X(xs[0]), Y(0));
+    for (let i = 0; i < n; i++) {
+      ctx.lineTo(X(xs[i]), Y((i + 1) / n));
+      if (i < n - 1) ctx.lineTo(X(xs[i + 1]), Y((i + 1) / n));
+    }
+    ctx.lineTo(X(hi), Y(1));
+    ctx.strokeStyle = '#1a4a8a'; ctx.lineWidth = 2.5; ctx.setLineDash([6, 4]); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#1a4a8a';
+    for (let i = 0; i < n; i++) {
+      ctx.beginPath(); ctx.arc(X(xs[i]), Y((i + 1) / n), 5, 0, 2 * Math.PI); ctx.fill();
+    }
+  }
+
+  // Candidate SNR (red dashed vertical)
   ctx.beginPath(); ctx.setLineDash([12, 8]); ctx.strokeStyle = '#d62728'; ctx.lineWidth = 3;
   ctx.moveTo(X(snr), py0); ctx.lineTo(X(snr), py1); ctx.stroke(); ctx.setLineDash([]);
+
+  // Axes
   ctx.strokeStyle = '#333'; ctx.lineWidth = 2;
   ctx.beginPath(); ctx.moveTo(px0, py0); ctx.lineTo(px0, py1); ctx.lineTo(px1, py1); ctx.stroke();
-  ctx.fillStyle = '#333'; ctx.lineWidth = 1.5; ctx.font = '26px sans-serif'; ctx.textAlign = 'center';
-  const dec = (hi - lo) > 20 ? 0 : 1;
-  for (let i = 0; i <= 6; i++) { const x = lo + (hi - lo) * i / 6; ctx.beginPath(); ctx.moveTo(X(x), py1); ctx.lineTo(X(x), py1 + 9); ctx.stroke(); ctx.fillText(x.toFixed(dec), X(x), py1 + 36); }
+
+  // X ticks
+  ctx.fillStyle = '#333'; ctx.font = '26px sans-serif'; ctx.textAlign = 'center';
+  const xdec = (hi - lo) > 20 ? 0 : 1;
+  for (let i = 0; i <= 6; i++) {
+    const x = lo + (hi - lo) * i / 6;
+    ctx.beginPath(); ctx.moveTo(X(x), py1); ctx.lineTo(X(x), py1 + 9); ctx.stroke();
+    ctx.fillText(x.toFixed(xdec), X(x), py1 + 36);
+  }
   ctx.font = '30px sans-serif'; ctx.fillText('SNR', (px0 + px1) / 2, H - 26);
-  const lw = 360, lh = 92, lx = px1 - lw - 14, ly = py0 + 14;
-  ctx.fillStyle = 'rgba(255,255,255,0.88)'; ctx.fillRect(lx, ly, lw, lh);
+
+  // Y ticks
+  ctx.textAlign = 'right'; ctx.font = '24px sans-serif'; ctx.lineWidth = 1.5;
+  [0, 0.25, 0.5, 0.75, 1.0].forEach(y => {
+    ctx.beginPath(); ctx.moveTo(px0 - 9, Y(y)); ctx.lineTo(px0, Y(y)); ctx.stroke();
+    ctx.fillText(y.toFixed(2), px0 - 14, Y(y) + 8);
+  });
+  // Y axis label (rotated)
+  ctx.save(); ctx.translate(22, (py0 + py1) / 2); ctx.rotate(-Math.PI / 2);
+  ctx.textAlign = 'center'; ctx.font = '28px sans-serif'; ctx.fillStyle = '#333';
+  ctx.fillText('Cumulative probability', 0, 0); ctx.restore();
+
+  // p-value
+  const pval = 1 - normcdf((snr - mu) / sigma);
+  const pStr = pval < 1e-4 ? pval.toExponential(2) : pval.toFixed(4);
+  const empP = hasEmp ? xs.filter(v => v >= snr).length / xs.length : null;
+
+  // Legend box
+  const rows = hasEmp ? 3 : 2;
+  const lw = 460, lh = 38 + rows * 40;
+  const lx = px1 - lw - 14, ly = py0 + 14;
+  ctx.fillStyle = 'rgba(255,255,255,0.93)'; ctx.fillRect(lx, ly, lw, lh);
   ctx.strokeStyle = '#ccc'; ctx.lineWidth = 1; ctx.strokeRect(lx, ly, lw, lh);
-  ctx.textAlign = 'left'; ctx.font = '26px sans-serif';
-  ctx.fillStyle = 'rgba(135,206,235,0.55)'; ctx.fillRect(lx + 18, ly + 16, 46, 26);
-  ctx.strokeStyle = '#3a9bd5'; ctx.lineWidth = 2; ctx.strokeRect(lx + 18, ly + 16, 46, 26);
-  ctx.fillStyle = '#222'; ctx.fillText('Null Distribution', lx + 78, ly + 37);
-  ctx.strokeStyle = '#d62728'; ctx.lineWidth = 3; ctx.setLineDash([10, 6]);
-  ctx.beginPath(); ctx.moveTo(lx + 18, ly + 64); ctx.lineTo(lx + 64, ly + 64); ctx.stroke(); ctx.setLineDash([]);
-  ctx.fillStyle = '#222'; ctx.fillText('Candidate', lx + 78, ly + 72);
+  ctx.font = '24px sans-serif'; ctx.textAlign = 'left'; ctx.fillStyle = '#222';
+
+  const addRow = (i, drawLine, label) => {
+    const cy = ly + 28 + i * 38;
+    drawLine(cy);
+    ctx.fillStyle = '#222'; ctx.fillText(label, lx + 78, cy + 7);
+  };
+
+  addRow(0, cy => {
+    ctx.strokeStyle = '#3a9bd5'; ctx.lineWidth = 3; ctx.setLineDash([]);
+    ctx.beginPath(); ctx.moveTo(lx + 18, cy); ctx.lineTo(lx + 64, cy); ctx.stroke();
+  }, 'Gaussian CDF');
+  if (hasEmp) {
+    addRow(1, cy => {
+      ctx.strokeStyle = '#1a4a8a'; ctx.lineWidth = 2.5; ctx.setLineDash([6, 4]);
+      ctx.beginPath(); ctx.moveTo(lx + 18, cy); ctx.lineTo(lx + 64, cy); ctx.stroke();
+      ctx.setLineDash([]); ctx.fillStyle = '#1a4a8a';
+      ctx.beginPath(); ctx.arc(lx + 41, cy, 5, 0, 2 * Math.PI); ctx.fill();
+    }, `Empirical CDF  (n = ${xs.length})`);
+    addRow(2, cy => {
+      ctx.strokeStyle = '#d62728'; ctx.lineWidth = 3; ctx.setLineDash([10, 6]);
+      ctx.beginPath(); ctx.moveTo(lx + 18, cy); ctx.lineTo(lx + 64, cy); ctx.stroke();
+      ctx.setLineDash([]);
+    }, `Candidate  —  p₄ = ${pStr}${empP != null ? '  (emp: ' + empP.toFixed(2) + ')' : ''}`);
+  } else {
+    addRow(1, cy => {
+      ctx.strokeStyle = '#d62728'; ctx.lineWidth = 3; ctx.setLineDash([10, 6]);
+      ctx.beginPath(); ctx.moveTo(lx + 18, cy); ctx.lineTo(lx + 64, cy); ctx.stroke();
+      ctx.setLineDash([]);
+    }, `Candidate  —  p = ${pStr}`);
+  }
 }
 
-// ---- app ----
+// OoD interactive chart (Chart.js)
+const OOD_SKIP = new Set([
+  'TIC', 'TOI', 'proposed_toi', '_cand_idx', 'Has Visible TTVs', 'Interesting',
+  'failed_tests', 'nst_samples', 'passed_all_tests', 'ood_pvalue', 'outlier_score',
+  'Multiplicity', 'err_Period', 'err_Epoch', 'err_Duration',
+  'Radius_planet_errp', 'Radius_planet_errm',
+]);
+
+function numericCols(rows) {
+  if (!rows.length) return [];
+  return Object.keys(rows[0]).filter(k => {
+    if (OOD_SKIP.has(k)) return false;
+    const sample = rows.slice(0, 40).map(r => r[k]).filter(v => v != null);
+    if (!sample.length) return false;
+    return sample.filter(v => typeof v === 'number' && isFinite(v)).length / sample.length > 0.6;
+  });
+}
+
+let oodChart = null;
+
+function buildOodChart(rows, xField, yField, chartType, page) {
+  const canvas = document.getElementById('ood-chart');
+  if (oodChart) { oodChart.destroy(); oodChart = null; }
+
+  if (chartType === 'scatter') {
+    const regular = [], ood = [];
+    rows.forEach(r => {
+      const x = r[xField], y = r[yField];
+      if (x == null || !isFinite(x) || y == null || !isFinite(y)) return;
+      (r.Interesting ? ood : regular).push({ x, y, _row: r });
+    });
+    oodChart = new Chart(canvas, {
+      type: 'scatter',
+      data: {
+        datasets: [
+          { label: 'Candidates', data: regular,
+            backgroundColor: 'rgba(100,120,200,0.5)', pointRadius: 5, pointHoverRadius: 7 },
+          { label: 'OoD (interesting)', data: ood,
+            backgroundColor: 'rgba(230,100,20,0.85)', pointRadius: 10, pointHoverRadius: 12,
+            pointStyle: 'star' },
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { display: true, position: 'top' },
+          tooltip: { callbacks: { label: ctx => `TIC ${ctx.raw._row.TIC}  (${Number(ctx.raw.x).toPrecision(4)}, ${Number(ctx.raw.y).toPrecision(4)})` } }
+        },
+        scales: {
+          x: { title: { display: true, text: xField } },
+          y: { title: { display: true, text: yField } },
+        },
+        onClick: (event, elements) => {
+          if (!elements.length) return;
+          const el = elements[0];
+          const row = oodChart.data.datasets[el.datasetIndex].data[el.index]._row;
+          showPlot(page, row);
+        },
+      }
+    });
+  } else {
+    // Histogram
+    const vals = rows.map(r => r[xField]).filter(v => v != null && isFinite(v));
+    if (!vals.length) return;
+    const mn = Math.min(...vals), mx = Math.max(...vals);
+    const BINS = 25, bw = (mx - mn) / (BINS || 1);
+    const regC = new Array(BINS).fill(0), oodC = new Array(BINS).fill(0);
+    rows.forEach(r => {
+      const v = r[xField]; if (v == null || !isFinite(v)) return;
+      const idx = Math.min(Math.floor((v - mn) / (bw || 1)), BINS - 1);
+      (r.Interesting ? oodC : regC)[idx]++;
+    });
+    const labels = Array.from({ length: BINS }, (_, i) => (mn + (i + 0.5) * bw).toPrecision(3));
+    oodChart = new Chart(canvas, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [
+          { label: 'Candidates', data: regC, backgroundColor: 'rgba(100,120,200,0.65)', stack: 'a' },
+          { label: 'OoD (interesting)', data: oodC, backgroundColor: 'rgba(230,100,20,0.75)', stack: 'a' },
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: true, position: 'top' } },
+        scales: {
+          x: { stacked: true, title: { display: true, text: xField } },
+          y: { stacked: true, title: { display: true, text: 'Count' } },
+        }
+      }
+    });
+  }
+}
+
+function setupOodPanel(rows, page) {
+  const cols = numericCols(rows);
+  const selX = document.getElementById('ood-x');
+  const selY = document.getElementById('ood-y');
+  const selYWrap = document.getElementById('ood-y-label');
+  [selX, selY].forEach(sel => {
+    sel.innerHTML = '';
+    cols.forEach(c => {
+      const opt = document.createElement('option'); opt.value = c; opt.textContent = c;
+      sel.appendChild(opt);
+    });
+  });
+  selX.value = cols.includes('Period') ? 'Period' : cols[0];
+  selY.value = cols.includes('Radius_planet') ? 'Radius_planet' : (cols[1] || cols[0]);
+
+  const redraw = () => {
+    const ct = document.querySelector('input[name="ood-type"]:checked').value;
+    selY.disabled = ct === 'histogram';
+    selYWrap.style.opacity = ct === 'histogram' ? '0.4' : '1';
+    buildOodChart(rows, selX.value, selY.value, ct, page);
+  };
+  selX.onchange = redraw; selY.onchange = redraw;
+  document.querySelectorAll('input[name="ood-type"]').forEach(r => r.onchange = redraw);
+  redraw();
+}
+
+// app
 const els = {};
 let table = null, currentPage = null;
 const cacheCSV = {}, cacheMD = {};
@@ -316,7 +561,7 @@ function showPlot(page, d) {
     els.nst.style.display = 'none';
   } else {
     els.nst.style.display = '';
-    drawNull(els.nst, d['μ(SNR | null)'], d['σ(SNR | null)'], d.SNR);
+    drawNullCDF(els.nst, d['μ(SNR | null)'], d['σ(SNR | null)'], d.SNR, d['nst_samples'] || '');
   }
   els.plotPanel.classList.add('visible');
 }
@@ -329,26 +574,44 @@ async function renderTablePage(page) {
   els.plotPanel.classList.remove('visible');
   els.filter.value = '';
   els.filter.placeholder = page.filterPlaceholder || 'Filter TIC or TOI…';
+
   const hintEl = document.querySelector('#toolbar .hint');
   if (hintEl) hintEl.textContent = page.plot
     ? 'Click any row to see its diagnostic plots · Click column headers to sort'
     : 'Click column headers to sort';
-  const dlEl = document.getElementById('downloads');
-  dlEl.innerHTML = '';
+
+  if (page.downloadFilename) {
+    els.downloadBtn.style.display = '';
+    els.downloadBtn.onclick = () => table && table.download('csv', page.downloadFilename);
+  } else {
+    els.downloadBtn.style.display = 'none';
+  }
+
+  els.downloads.innerHTML = '';
   (page.downloads || []).forEach(({ label, file }) => {
     const a = document.createElement('a');
     a.className = 'dl-btn'; a.textContent = label; a.href = file; a.download = file;
-    dlEl.appendChild(a);
+    els.downloads.appendChild(a);
   });
+
+  if (page.hasOodChart) {
+    els.oodPanel.style.display = 'block';
+  } else {
+    els.oodPanel.style.display = 'none';
+    if (oodChart) { oodChart.destroy(); oodChart = null; }
+  }
+
   if (table) { table.destroy(); table = null; }
   const rows = await loadData(page);
   table = new Tabulator('#table', {
     data: rows, height: '100%', layout: 'fitDataTable',
     selectableRows: 1, movableColumns: true,
     initialSort: page.initialSort || [{ column: 'SNR', dir: 'desc' }],
-    columns: page.columns || COLUMNS.concat(page.extraColumns || []),
+    columns: page.columns || buildColumns(page),
   });
   if (page.plot) table.on('rowClick', (e, row) => showPlot(page, row.getData()));
+
+  if (page.hasOodChart) setupOodPanel(rows, page);
 }
 
 function renderPlaceholder() {
@@ -356,6 +619,10 @@ function renderPlaceholder() {
   els.toolbar.style.display = 'none';
   els.tableWrap.style.display = 'none';
   els.plotPanel.classList.remove('visible');
+  els.oodPanel.style.display = 'none';
+  els.downloadBtn.style.display = 'none';
+  els.downloads.innerHTML = '';
+  if (oodChart) { oodChart.destroy(); oodChart = null; }
   if (table) { table.destroy(); table = null; }
 }
 
@@ -370,16 +637,19 @@ function switchPage(key) {
 }
 
 function main() {
-  els.container = document.getElementById('container');
-  els.nav = document.getElementById('nav');
-  els.pagetext = document.getElementById('pagetext');
-  els.toolbar = document.getElementById('toolbar');
-  els.filter = document.getElementById('filter');
-  els.tableWrap = document.getElementById('table-wrap');
-  els.plotPanel = document.getElementById('plot-panel');
-  els.plotImg = document.getElementById('plot');
-  els.plotTitle = document.getElementById('plot-title');
-  els.nst = document.getElementById('nst');
+  els.container   = document.getElementById('container');
+  els.nav         = document.getElementById('nav');
+  els.pagetext    = document.getElementById('pagetext');
+  els.toolbar     = document.getElementById('toolbar');
+  els.filter      = document.getElementById('filter');
+  els.downloadBtn = document.getElementById('download-btn');
+  els.downloads   = document.getElementById('downloads');
+  els.oodPanel    = document.getElementById('ood-panel');
+  els.tableWrap   = document.getElementById('table-wrap');
+  els.plotPanel   = document.getElementById('plot-panel');
+  els.plotImg     = document.getElementById('plot');
+  els.plotTitle   = document.getElementById('plot-title');
+  els.nst         = document.getElementById('nst');
 
   PAGES.forEach(p => {
     const a = document.createElement('a');
