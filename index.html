@@ -216,7 +216,7 @@ function fmtPass(cell) {
 function fmtFailed(cell) {
   const v = cell.getValue();
   if (!v) return '';
-  return v.split(',').map(t => `<span class="fail-badge">${t.trim()}</span>`).join('');
+  return v.split('|').map(t => `<span class="fail-badge">${t.trim()}</span>`).join('');
 }
 function sig3(v) {
   if (v == null || isNaN(v) || !isFinite(v)) return '';

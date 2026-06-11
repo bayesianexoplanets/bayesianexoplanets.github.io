@@ -40,7 +40,7 @@ def failed_tests_new(tic, cand_idx):
         if col in row.index and pd.notna(row[col]):
             if test(row[col]):
                 failed.append(name)
-    return ','.join(failed)
+    return '|'.join(failed)
 
 
 # ── tois_new.csv ──────────────────────────────────────────────────────────────
