@@ -1,16 +1,6 @@
-New planet candidates found by our pipeline that are **not** in the TESS Objects of Interest
-(TOI) catalog.
+New planet candidates found by our pipeline that are **not** in the TESS Objects of
+Interest (TOI) catalog.
 
-## Outlier detection: the most interesting candidates
-
-We summarise each candidate by four features — planet radius, orbital period,
-host $T_\mathrm{eff}$, and system multiplicity — and estimate the density of the
-**known** TESS planet population in that space with a Gaussian KDE. Candidates
-that land in low-density regions are flagged as out-of-distribution (OoD)
-outliers. These are the most interesting ones. 19 candidates are flagged interesting.
-
-![New candidates vs. known TESS planets in feature space](new_outliers.png)
-
-Most of the outliers are ultra-short-period ($P \lesssim 0.3$ d) or long-period
-($P \gtrsim 180$ d) planets, unusually large/small radii, or members of
-multi-planet systems.
+Use the **Interactive plot** button in the toolbar to explore the population in any
+pair of catalog quantities — out-of-distribution candidates (the most interesting
+ones) are drawn as orange stars, and clicking any point opens its diagnostic plots.

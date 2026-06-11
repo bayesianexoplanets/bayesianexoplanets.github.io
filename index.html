@@ -38,24 +38,27 @@
   #pagetext img { max-width: 100%; }
   #pagetext table { border-collapse: collapse; }
   #pagetext th, #pagetext td { border: 1px solid var(--border); padding: 4px 8px; }
-  /* OoD chart panel */
-  #ood-panel { flex: 0 0 auto; padding: 8px 20px 10px; background: #f9fafb; border-bottom: 1px solid var(--border); }
-  #ood-controls { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; font-size: 0.85rem; margin-bottom: 6px; }
-  #ood-controls label { color: #374151; display: flex; align-items: center; gap: 5px; }
-  #ood-controls select { padding: 3px 8px; font-size: 0.85rem; border: 1px solid var(--border); border-radius: 4px; background: #fff; }
-  #ood-controls select:disabled { background: #f3f4f6; color: var(--muted); }
-  #ood-controls .hint { color: var(--muted); font-size: 0.8rem; }
-  #ood-chart-wrap { height: 260px; position: relative; }
   /* toolbar */
   #toolbar { padding: 8px 20px; background: #f3f4f6; border-bottom: 1px solid var(--border); display: flex; gap: 12px; align-items: center; font-size: 0.85rem; }
   #toolbar input { padding: 4px 10px; font-size: 0.85rem; width: 280px; border: 1px solid var(--border); border-radius: 4px; }
   #toolbar .hint { color: var(--muted); }
-  #download-btn { padding: 4px 12px; font-size: 0.82rem; border: 1px solid var(--border); border-radius: 4px; background: #fff; cursor: pointer; color: #374151; white-space: nowrap; }
-  #download-btn:hover { background: #e5e7eb; }
+  #download-btn, #ood-toggle { padding: 4px 12px; font-size: 0.82rem; border: 1px solid var(--border); border-radius: 4px; background: #fff; cursor: pointer; color: #374151; white-space: nowrap; }
+  #download-btn:hover, #ood-toggle:hover { background: #e5e7eb; }
+  #ood-toggle.open { background: #dbeafe; border-color: #93c5fd; color: #1d4ed8; }
   #downloads { display: flex; gap: 8px; }
   .dl-btn { display: inline-flex; align-items: center; padding: 3px 10px; font-size: 0.82rem; border: 1px solid var(--border); border-radius: 4px; background: #fff; color: #374151; text-decoration: none; white-space: nowrap; }
   .dl-btn:hover { background: #f3f4f6; color: #111; border-color: #9ca3af; }
-  #table-wrap { flex: 1 1 auto; min-height: 200px; padding: 0 20px; overflow: hidden; }
+  /* table + side-by-side OoD chart */
+  #content-row { flex: 1 1 auto; display: flex; min-height: 200px; overflow: hidden; }
+  #table-wrap { flex: 1 1 auto; min-width: 0; padding: 0 20px; overflow: hidden; }
+  #ood-panel { flex: 0 0 38%; min-width: 360px; max-width: 600px; display: none; flex-direction: column;
+               border-left: 1px solid var(--border); background: #f9fafb; padding: 12px 16px; overflow: auto; }
+  #ood-controls { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; font-size: 0.85rem; margin-bottom: 8px; }
+  #ood-controls label { color: #374151; display: flex; align-items: center; gap: 5px; }
+  #ood-controls select { padding: 3px 8px; font-size: 0.85rem; border: 1px solid var(--border); border-radius: 4px; background: #fff; max-width: 160px; }
+  #ood-controls select:disabled { background: #f3f4f6; color: var(--muted); }
+  #ood-panel .hint { color: var(--muted); font-size: 0.8rem; margin-top: 6px; }
+  #ood-chart-wrap { flex: 1 1 auto; min-height: 300px; position: relative; }
   #table { height: 100%; }
   #plot-panel { flex: 0 0 auto; position: relative; padding: 10px 20px 16px; background: var(--panel); border-top: 1px solid var(--border); display: none; }
   #plot-panel.visible { display: block; }
@@ -83,23 +86,26 @@
     <nav id="nav"></nav>
   </header>
   <div id="pagetext"></div>
-  <div id="ood-panel" style="display:none">
-    <div id="ood-controls">
-      <label>X: <select id="ood-x"></select></label>
-      <span id="ood-y-label" style="display:flex;align-items:center;gap:5px">Y: <select id="ood-y"></select></span>
-      <label><input type="radio" name="ood-type" value="scatter" checked> Scatter</label>
-      <label><input type="radio" name="ood-type" value="histogram"> Histogram</label>
-      <span class="hint">Orange stars = OoD candidates &mdash; click to view diagnostic plots</span>
-    </div>
-    <div id="ood-chart-wrap"><canvas id="ood-chart"></canvas></div>
-  </div>
   <div id="toolbar" style="display:none">
     <input id="filter" placeholder="Filter TIC or TOI&hellip;" autocomplete="off">
     <button id="download-btn" type="button" style="display:none">&#8595; CSV</button>
+    <button id="ood-toggle" type="button" style="display:none">Interactive plot</button>
     <div id="downloads"></div>
     <span class="hint">Click any row to see its diagnostic plots &middot; Click column headers to sort</span>
   </div>
-  <div id="table-wrap" style="display:none"><div id="table"></div></div>
+  <div id="content-row" style="display:none">
+    <div id="table-wrap"><div id="table"></div></div>
+    <div id="ood-panel">
+      <div id="ood-controls">
+        <label>X: <select id="ood-x"></select></label>
+        <span id="ood-y-label" style="display:flex;align-items:center;gap:5px">Y: <select id="ood-y"></select></span>
+        <label><input type="radio" name="ood-type" value="scatter" checked> Scatter</label>
+        <label><input type="radio" name="ood-type" value="histogram"> Histogram</label>
+      </div>
+      <div id="ood-chart-wrap"><canvas id="ood-chart"></canvas></div>
+      <span class="hint" id="ood-hint"></span>
+    </div>
+  </div>
   <div id="plot-panel">
     <button id="plot-close" type="button" aria-label="Close plot">&times;</button>
     <h2 id="plot-title"></h2>
@@ -122,6 +128,7 @@ const PAGES = [
   { key: 'overview',  title: 'Overview',                 md: 'overview.md',       type: 'placeholder' },
   { key: 'tess',      title: 'TESS Exoplanet Catalog',   md: 'tess.md',           type: 'table', csv: 'tois.csv',
     downloadFilename: 'tess_exoplanet_catalog.csv',
+    hasOodChart: true,
     plot:  d => `plots/${d.TIC}/${d.known_idx}.jpg`,
     ptitle:d => `TIC ${d.TIC} · TOI ${d.TOI} · planet ${d.known_idx + 1} · P=${(+d.Period).toFixed(4)} d, Epoch=${(+d.Epoch).toFixed(4)} BTJD, Dur=${(+d.Duration).toFixed(4)} d · SNR=${(+d.SNR).toFixed(1)}` },
   { key: 'tessnew',   title: 'TESS New Candidates',      md: 'tess_new.md',       type: 'table', csv: 'tois_new.csv',
@@ -277,122 +284,127 @@ function drawNullCDF(canvas, mu, sigma, snr, nstSamplesStr) {
   const W = 1300, H = 800, ctx = canvas.getContext('2d');
   canvas.width = W; canvas.height = H;
   ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, W, H);
+  ctx.lineJoin = 'round'; ctx.lineCap = 'round';
   if (mu == null || sigma == null || !isFinite(mu) || !isFinite(sigma) || sigma <= 0) {
     ctx.fillStyle = '#888'; ctx.textAlign = 'center'; ctx.font = 'italic 30px sans-serif';
     ctx.fillText('No null-simulation (NST) data for this candidate', W / 2, H / 2);
     return;
   }
 
-  const xs = (nstSamplesStr || '').split('|').map(Number).filter(v => isFinite(v)).sort((a, b) => a - b);
+  const xs = (nstSamplesStr || '').split('|').map(Number)
+    .filter(v => isFinite(v) && v > 0).sort((a, b) => a - b);
   const hasEmp = xs.length >= 3;
+  snr = Math.max(snr, 1.001);
 
-  const px0 = 90, px1 = W - 40, py0 = 40, py1 = H - 95;
-  let lo = Math.min(mu - 5 * sigma, snr), hi = Math.max(mu + 5 * sigma, snr);
-  if (hasEmp) { lo = Math.min(lo, xs[0]); hi = Math.max(hi, xs[xs.length - 1]); }
-  const pad = 0.08 * (hi - lo) || 1; lo -= pad; hi += pad;
-  const X = x => px0 + (x - lo) / (hi - lo) * (px1 - px0);
+  // log10(SNR) axis, cut at SNR = 1
+  const px0 = 104, px1 = W - 36, py0 = 48, py1 = H - 104;
+  const lo = 0;
+  const hi = Math.log10(Math.max(mu + 5 * sigma, snr, hasEmp ? xs[xs.length - 1] : 0)) + 0.06;
+  const X = s => px0 + (Math.log10(Math.max(s, 1)) - lo) / (hi - lo) * (px1 - px0);
   const Y = y => py1 - y * (py1 - py0);
 
-  // Gaussian CDF
-  const NPTS = 600;
-  ctx.beginPath();
-  for (let i = 0; i <= NPTS; i++) {
-    const x = lo + (hi - lo) * i / NPTS;
-    const y = normcdf((x - mu) / sigma);
-    i === 0 ? ctx.moveTo(X(x), Y(y)) : ctx.lineTo(X(x), Y(y));
-  }
-  ctx.strokeStyle = '#3a9bd5'; ctx.lineWidth = 3; ctx.setLineDash([]); ctx.stroke();
+  // gridlines
+  const TICKS = [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000]
+    .filter(t => Math.log10(t) <= hi + 1e-9);
+  ctx.strokeStyle = '#e7e9ee'; ctx.lineWidth = 1.5; ctx.setLineDash([]);
+  TICKS.forEach(t => {
+    ctx.beginPath(); ctx.moveTo(X(t), py0); ctx.lineTo(X(t), py1); ctx.stroke();
+  });
+  [0.25, 0.5, 0.75, 1.0].forEach(y => {
+    ctx.beginPath(); ctx.moveTo(px0, Y(y)); ctx.lineTo(px1, Y(y)); ctx.stroke();
+  });
 
-  // Empirical CDF (step function + dots)
+  // Gaussian CDF (smooth, evaluated per pixel)
+  ctx.beginPath();
+  for (let px = px0; px <= px1; px++) {
+    const s = 10 ** (lo + (px - px0) / (px1 - px0) * (hi - lo));
+    const y = normcdf((s - mu) / sigma);
+    px === px0 ? ctx.moveTo(px, Y(y)) : ctx.lineTo(px, Y(y));
+  }
+  ctx.strokeStyle = '#2f7fc1'; ctx.lineWidth = 4; ctx.stroke();
+
+  // Empirical CDF (steps + dots)
   if (hasEmp) {
     const n = xs.length;
     ctx.beginPath();
-    ctx.moveTo(X(lo), Y(0));
+    ctx.moveTo(px0, Y(0));
     ctx.lineTo(X(xs[0]), Y(0));
     for (let i = 0; i < n; i++) {
       ctx.lineTo(X(xs[i]), Y((i + 1) / n));
       if (i < n - 1) ctx.lineTo(X(xs[i + 1]), Y((i + 1) / n));
     }
-    ctx.lineTo(X(hi), Y(1));
-    ctx.strokeStyle = '#1a4a8a'; ctx.lineWidth = 2.5; ctx.setLineDash([6, 4]); ctx.stroke();
+    ctx.lineTo(px1, Y(1));
+    ctx.strokeStyle = '#123a6d'; ctx.lineWidth = 3; ctx.setLineDash([7, 5]); ctx.stroke();
     ctx.setLineDash([]);
-    ctx.fillStyle = '#1a4a8a';
+    ctx.fillStyle = '#123a6d';
     for (let i = 0; i < n; i++) {
-      ctx.beginPath(); ctx.arc(X(xs[i]), Y((i + 1) / n), 5, 0, 2 * Math.PI); ctx.fill();
+      ctx.beginPath(); ctx.arc(X(xs[i]), Y((i + 1) / n), 6, 0, 2 * Math.PI); ctx.fill();
     }
   }
 
-  // Candidate SNR (red dashed vertical)
-  ctx.beginPath(); ctx.setLineDash([12, 8]); ctx.strokeStyle = '#d62728'; ctx.lineWidth = 3;
+  // Candidate SNR marker
+  ctx.beginPath(); ctx.setLineDash([14, 9]); ctx.strokeStyle = '#dc2626'; ctx.lineWidth = 3.5;
   ctx.moveTo(X(snr), py0); ctx.lineTo(X(snr), py1); ctx.stroke(); ctx.setLineDash([]);
 
-  // Axes
-  ctx.strokeStyle = '#333'; ctx.lineWidth = 2;
+  // axes frame
+  ctx.strokeStyle = '#374151'; ctx.lineWidth = 2.5;
   ctx.beginPath(); ctx.moveTo(px0, py0); ctx.lineTo(px0, py1); ctx.lineTo(px1, py1); ctx.stroke();
 
-  // X ticks
-  ctx.fillStyle = '#333'; ctx.font = '26px sans-serif'; ctx.textAlign = 'center';
-  const xdec = (hi - lo) > 20 ? 0 : 1;
-  for (let i = 0; i <= 6; i++) {
-    const x = lo + (hi - lo) * i / 6;
-    ctx.beginPath(); ctx.moveTo(X(x), py1); ctx.lineTo(X(x), py1 + 9); ctx.stroke();
-    ctx.fillText(x.toFixed(xdec), X(x), py1 + 36);
-  }
-  ctx.font = '30px sans-serif'; ctx.fillText('SNR', (px0 + px1) / 2, H - 26);
-
-  // Y ticks
-  ctx.textAlign = 'right'; ctx.font = '24px sans-serif'; ctx.lineWidth = 1.5;
-  [0, 0.25, 0.5, 0.75, 1.0].forEach(y => {
-    ctx.beginPath(); ctx.moveTo(px0 - 9, Y(y)); ctx.lineTo(px0, Y(y)); ctx.stroke();
-    ctx.fillText(y.toFixed(2), px0 - 14, Y(y) + 8);
+  // x tick labels
+  ctx.fillStyle = '#374151'; ctx.font = '26px sans-serif'; ctx.textAlign = 'center';
+  ctx.lineWidth = 2;
+  TICKS.forEach(t => {
+    ctx.beginPath(); ctx.moveTo(X(t), py1); ctx.lineTo(X(t), py1 + 10); ctx.stroke();
+    ctx.fillText(String(t), X(t), py1 + 40);
   });
-  // Y axis label (rotated)
-  ctx.save(); ctx.translate(22, (py0 + py1) / 2); ctx.rotate(-Math.PI / 2);
-  ctx.textAlign = 'center'; ctx.font = '28px sans-serif'; ctx.fillStyle = '#333';
+  ctx.font = '30px sans-serif';
+  ctx.fillText('SNR  (log scale)', (px0 + px1) / 2, H - 28);
+
+  // y tick labels
+  ctx.textAlign = 'right'; ctx.font = '25px sans-serif'; ctx.lineWidth = 2;
+  [0, 0.25, 0.5, 0.75, 1.0].forEach(y => {
+    ctx.beginPath(); ctx.moveTo(px0 - 10, Y(y)); ctx.lineTo(px0, Y(y)); ctx.stroke();
+    ctx.fillText(y.toFixed(2), px0 - 16, Y(y) + 8);
+  });
+  ctx.save(); ctx.translate(26, (py0 + py1) / 2); ctx.rotate(-Math.PI / 2);
+  ctx.textAlign = 'center'; ctx.font = '29px sans-serif';
   ctx.fillText('Cumulative probability', 0, 0); ctx.restore();
 
   // p-value
   const pval = 1 - normcdf((snr - mu) / sigma);
   const pStr = pval < 1e-4 ? pval.toExponential(2) : pval.toFixed(4);
-  const empP = hasEmp ? xs.filter(v => v >= snr).length / xs.length : null;
 
-  // Legend box
-  const rows = hasEmp ? 3 : 2;
-  const lw = 460, lh = 38 + rows * 40;
-  const lx = px1 - lw - 14, ly = py0 + 14;
-  ctx.fillStyle = 'rgba(255,255,255,0.93)'; ctx.fillRect(lx, ly, lw, lh);
-  ctx.strokeStyle = '#ccc'; ctx.lineWidth = 1; ctx.strokeRect(lx, ly, lw, lh);
-  ctx.font = '24px sans-serif'; ctx.textAlign = 'left'; ctx.fillStyle = '#222';
+  // legend (top-left, inside the empty region of a rising CDF)
+  const items = [
+    { label: 'Null distribution (Gaussian CDF)',
+      draw: cy => { ctx.strokeStyle = '#2f7fc1'; ctx.lineWidth = 4; ctx.setLineDash([]);
+        ctx.beginPath(); ctx.moveTo(0, cy); ctx.lineTo(48, cy); ctx.stroke(); } },
+  ];
+  if (hasEmp) items.push(
+    { label: `NST samples, empirical CDF (n = ${xs.length})`,
+      draw: cy => { ctx.strokeStyle = '#123a6d'; ctx.lineWidth = 3; ctx.setLineDash([7, 5]);
+        ctx.beginPath(); ctx.moveTo(0, cy); ctx.lineTo(48, cy); ctx.stroke(); ctx.setLineDash([]);
+        ctx.fillStyle = '#123a6d'; ctx.beginPath(); ctx.arc(24, cy, 6, 0, 2 * Math.PI); ctx.fill(); } });
+  items.push(
+    { label: `Candidate SNR,  p = ${pStr}`,
+      draw: cy => { ctx.strokeStyle = '#dc2626'; ctx.lineWidth = 3.5; ctx.setLineDash([14, 9]);
+        ctx.beginPath(); ctx.moveTo(0, cy); ctx.lineTo(48, cy); ctx.stroke(); ctx.setLineDash([]); } });
 
-  const addRow = (i, drawLine, label) => {
-    const cy = ly + 28 + i * 38;
-    drawLine(cy);
-    ctx.fillStyle = '#222'; ctx.fillText(label, lx + 78, cy + 7);
-  };
-
-  addRow(0, cy => {
-    ctx.strokeStyle = '#3a9bd5'; ctx.lineWidth = 3; ctx.setLineDash([]);
-    ctx.beginPath(); ctx.moveTo(lx + 18, cy); ctx.lineTo(lx + 64, cy); ctx.stroke();
-  }, 'Gaussian CDF');
-  if (hasEmp) {
-    addRow(1, cy => {
-      ctx.strokeStyle = '#1a4a8a'; ctx.lineWidth = 2.5; ctx.setLineDash([6, 4]);
-      ctx.beginPath(); ctx.moveTo(lx + 18, cy); ctx.lineTo(lx + 64, cy); ctx.stroke();
-      ctx.setLineDash([]); ctx.fillStyle = '#1a4a8a';
-      ctx.beginPath(); ctx.arc(lx + 41, cy, 5, 0, 2 * Math.PI); ctx.fill();
-    }, `Empirical CDF  (n = ${xs.length})`);
-    addRow(2, cy => {
-      ctx.strokeStyle = '#d62728'; ctx.lineWidth = 3; ctx.setLineDash([10, 6]);
-      ctx.beginPath(); ctx.moveTo(lx + 18, cy); ctx.lineTo(lx + 64, cy); ctx.stroke();
-      ctx.setLineDash([]);
-    }, `Candidate  —  p₄ = ${pStr}${empP != null ? '  (emp: ' + empP.toFixed(2) + ')' : ''}`);
-  } else {
-    addRow(1, cy => {
-      ctx.strokeStyle = '#d62728'; ctx.lineWidth = 3; ctx.setLineDash([10, 6]);
-      ctx.beginPath(); ctx.moveTo(lx + 18, cy); ctx.lineTo(lx + 64, cy); ctx.stroke();
-      ctx.setLineDash([]);
-    }, `Candidate  —  p = ${pStr}`);
-  }
+  ctx.font = '25px sans-serif';
+  const lw = 64 + Math.max(...items.map(it => ctx.measureText(it.label).width)) + 24;
+  const lh = 26 + items.length * 42;
+  const lx = px0 + 22, ly = py0 + 16;
+  ctx.fillStyle = 'rgba(255,255,255,0.94)';
+  ctx.strokeStyle = '#d6dae1'; ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  if (ctx.roundRect) ctx.roundRect(lx, ly, lw, lh, 10); else ctx.rect(lx, ly, lw, lh);
+  ctx.fill(); ctx.stroke();
+  ctx.textAlign = 'left';
+  items.forEach((it, i) => {
+    const cy = ly + 36 + i * 42;
+    ctx.save(); ctx.translate(lx + 16, 0); it.draw(cy); ctx.restore();
+    ctx.fillStyle = '#1f2937'; ctx.fillText(it.label, lx + 80, cy + 8);
+  });
 }
 
 function loadChartJs() {
@@ -407,7 +419,7 @@ function loadChartJs() {
 
 // OoD interactive chart (Chart.js)
 const OOD_SKIP = new Set([
-  'TIC', 'TOI', 'proposed_toi', '_cand_idx', 'Has Visible TTVs', 'Interesting',
+  'TIC', 'TOI', 'proposed_toi', '_cand_idx', 'known_idx', 'Has Visible TTVs', 'Interesting',
   'failed_tests', 'nst_samples', 'passed_all_tests', 'ood_pvalue', 'outlier_score',
   'Multiplicity', 'err_Period', 'err_Epoch', 'err_Duration',
   'Radius_planet_errp', 'Radius_planet_errm',
@@ -436,17 +448,17 @@ function buildOodChart(rows, xField, yField, chartType, page) {
       if (x == null || !isFinite(x) || y == null || !isFinite(y)) return;
       (r.Interesting ? ood : regular).push({ x, y, _row: r });
     });
+    const datasets = [
+      { label: 'Candidates', data: regular,
+        backgroundColor: 'rgba(100,120,200,0.5)', pointRadius: 4, pointHoverRadius: 7 },
+    ];
+    if (ood.length) datasets.push(
+      { label: 'OoD (interesting)', data: ood,
+        backgroundColor: 'rgba(230,100,20,0.85)', pointRadius: 10, pointHoverRadius: 12,
+        pointStyle: 'star' });
     oodChart = new Chart(canvas, {
       type: 'scatter',
-      data: {
-        datasets: [
-          { label: 'Candidates', data: regular,
-            backgroundColor: 'rgba(100,120,200,0.5)', pointRadius: 5, pointHoverRadius: 7 },
-          { label: 'OoD (interesting)', data: ood,
-            backgroundColor: 'rgba(230,100,20,0.85)', pointRadius: 10, pointHoverRadius: 12,
-            pointStyle: 'star' },
-        ]
-      },
+      data: { datasets },
       options: {
         responsive: true, maintainAspectRatio: false,
         plugins: {
@@ -478,15 +490,14 @@ function buildOodChart(rows, xField, yField, chartType, page) {
       (r.Interesting ? oodC : regC)[idx]++;
     });
     const labels = Array.from({ length: BINS }, (_, i) => (mn + (i + 0.5) * bw).toPrecision(3));
+    const datasets = [
+      { label: 'Candidates', data: regC, backgroundColor: 'rgba(100,120,200,0.65)', stack: 'a' },
+    ];
+    if (oodC.some(c => c > 0)) datasets.push(
+      { label: 'OoD (interesting)', data: oodC, backgroundColor: 'rgba(230,100,20,0.75)', stack: 'a' });
     oodChart = new Chart(canvas, {
       type: 'bar',
-      data: {
-        labels,
-        datasets: [
-          { label: 'Candidates', data: regC, backgroundColor: 'rgba(100,120,200,0.65)', stack: 'a' },
-          { label: 'OoD (interesting)', data: oodC, backgroundColor: 'rgba(230,100,20,0.75)', stack: 'a' },
-        ]
-      },
+      data: { labels, datasets },
       options: {
         responsive: true, maintainAspectRatio: false,
         plugins: { legend: { display: true, position: 'top' } },
@@ -501,6 +512,10 @@ function buildOodChart(rows, xField, yField, chartType, page) {
 
 async function setupOodPanel(rows, page) {
   try { await loadChartJs(); } catch (e) { console.warn('Chart.js failed to load', e); return; }
+  const hasOod = rows.some(r => r.Interesting);
+  document.getElementById('ood-hint').textContent = hasOod
+    ? 'Orange stars = out-of-distribution (OoD) candidates — click any point to view its diagnostic plots'
+    : 'Click any point to view its diagnostic plots';
   const cols = numericCols(rows);
   const selX = document.getElementById('ood-x');
   const selY = document.getElementById('ood-y');
@@ -528,7 +543,7 @@ async function setupOodPanel(rows, page) {
 
 // app
 const els = {};
-let table = null, currentPage = null;
+let table = null, currentPage = null, currentRows = null, oodOpen = false;
 const cacheCSV = {}, cacheMD = {};
 
 async function loadData(page) {
@@ -552,7 +567,16 @@ async function loadPageText(page) {
   const md = cacheMD[page.key];
   if (!md.trim()) { el.classList.add('empty'); el.innerHTML = ''; return; }
   el.classList.remove('empty');
-  el.innerHTML = '<div class="md">' + marked.parse(md) + '</div>';
+  // Shield LaTeX from the markdown parser: marked would otherwise pair up
+  // underscores across $...$ spans and wrap them in <em>, breaking KaTeX.
+  const mathStore = [];
+  const protectedMd = md
+    .replace(/\$\$[\s\S]+?\$\$/g, m => `@@MATH${mathStore.push(m) - 1}@@`)
+    .replace(/\$[^$\n]+?\$/g, m => `@@MATH${mathStore.push(m) - 1}@@`);
+  let html = marked.parse(protectedMd);
+  html = html.replace(/@@MATH(\d+)@@/g, (_, i) =>
+    mathStore[+i].replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'));
+  el.innerHTML = '<div class="md">' + html + '</div>';
   if (window.renderMathInElement) renderMathInElement(el, {
     delimiters: [
       { left: '$$', right: '$$', display: true },
@@ -580,7 +604,7 @@ async function renderTablePage(page) {
   currentPage = page;
   els.container.classList.remove('text-only');
   els.toolbar.style.display = 'flex';
-  els.tableWrap.style.display = 'block';
+  els.contentRow.style.display = 'flex';
   els.plotPanel.classList.remove('visible');
   els.filter.value = '';
   els.filter.placeholder = page.filterPlaceholder || 'Filter TIC or TOI…';
@@ -604,15 +628,16 @@ async function renderTablePage(page) {
     els.downloads.appendChild(a);
   });
 
-  if (page.hasOodChart) {
-    els.oodPanel.style.display = 'block';
-  } else {
-    els.oodPanel.style.display = 'none';
-    if (oodChart) { oodChart.destroy(); oodChart = null; }
-  }
+  // OoD chart panel starts closed on every page switch; opened via the toggle button
+  oodOpen = false;
+  els.oodPanel.style.display = 'none';
+  els.oodToggle.classList.remove('open');
+  els.oodToggle.style.display = page.hasOodChart ? '' : 'none';
+  if (oodChart) { oodChart.destroy(); oodChart = null; }
 
   if (table) { table.destroy(); table = null; }
   const rows = await loadData(page);
+  currentRows = rows;
   table = new Tabulator('#table', {
     data: rows, height: '100%', layout: 'fitDataTable',
     selectableRows: 1, movableColumns: true,
@@ -620,18 +645,18 @@ async function renderTablePage(page) {
     columns: page.columns || buildColumns(page),
   });
   if (page.plot) table.on('rowClick', (e, row) => showPlot(page, row.getData()));
-
-  if (page.hasOodChart) setupOodPanel(rows, page);
 }
 
 function renderPlaceholder() {
   els.container.classList.add('text-only');
   els.toolbar.style.display = 'none';
-  els.tableWrap.style.display = 'none';
+  els.contentRow.style.display = 'none';
   els.plotPanel.classList.remove('visible');
   els.oodPanel.style.display = 'none';
+  els.oodToggle.style.display = 'none';
   els.downloadBtn.style.display = 'none';
   els.downloads.innerHTML = '';
+  oodOpen = false;
   if (oodChart) { oodChart.destroy(); oodChart = null; }
   if (table) { table.destroy(); table = null; }
 }
@@ -655,6 +680,9 @@ function main() {
   els.downloadBtn = document.getElementById('download-btn');
   els.downloads   = document.getElementById('downloads');
   els.oodPanel    = document.getElementById('ood-panel');
+  els.oodToggle   = document.getElementById('ood-toggle');
+  els.oodHint     = document.getElementById('ood-hint');
+  els.contentRow  = document.getElementById('content-row');
   els.tableWrap   = document.getElementById('table-wrap');
   els.plotPanel   = document.getElementById('plot-panel');
   els.plotImg     = document.getElementById('plot');
@@ -672,6 +700,13 @@ function main() {
     if (!v) { table.clearFilter(true); return; }
     const fields = currentPage?.filterFields || ['TIC', 'TOI'];
     table.setFilter([fields.map(f => ({ field: f, type: 'like', value: v }))]);
+  });
+  els.oodToggle.addEventListener('click', async () => {
+    oodOpen = !oodOpen;
+    els.oodPanel.style.display = oodOpen ? 'flex' : 'none';
+    els.oodToggle.classList.toggle('open', oodOpen);
+    if (table) table.redraw(true);
+    if (oodOpen && currentRows) await setupOodPanel(currentRows, currentPage);
   });
   document.getElementById('plot-close').addEventListener('click', () => {
     els.plotPanel.classList.remove('visible');
