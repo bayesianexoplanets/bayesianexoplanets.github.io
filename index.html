@@ -296,16 +296,33 @@ function drawNullCDF(canvas, mu, sigma, snr, nstSamplesStr) {
   const hasEmp = xs.length >= 3;
   snr = Math.max(snr, 1.001);
 
-  // log10(SNR) axis, cut at SNR = 1
+  // log10(SNR) axis. Start where the null CDF becomes visibly nonzero
+  // (mu - 3.5 sigma), or a little left of the candidate / lowest NST sample
+  // if those sit lower; never below SNR = 1.
   const px0 = 104, px1 = W - 36, py0 = 48, py1 = H - 104;
-  const lo = 0;
+  let loSNR = mu - 3.5 * sigma;
+  loSNR = Math.min(loSNR, snr * 0.8);
+  if (hasEmp) loSNR = Math.min(loSNR, xs[0] * 0.9);
+  loSNR = Math.max(loSNR, 1);
+  const lo = Math.log10(loSNR);
   const hi = Math.log10(Math.max(mu + 5 * sigma, snr, hasEmp ? xs[xs.length - 1] : 0)) + 0.06;
-  const X = s => px0 + (Math.log10(Math.max(s, 1)) - lo) / (hi - lo) * (px1 - px0);
+  const X = s => px0 + (Math.log10(Math.max(s, loSNR)) - lo) / (hi - lo) * (px1 - px0);
   const Y = y => py1 - y * (py1 - py0);
 
-  // gridlines
-  const TICKS = [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000]
-    .filter(t => Math.log10(t) <= hi + 1e-9);
+  // 1-2-5 ticks per decade; denser mantissas if the visible range is narrow
+  const tickSets = [[1, 2, 5], [1, 1.5, 2, 3, 4, 5, 6, 8]];
+  let TICKS = [];
+  for (const mants of tickSets) {
+    TICKS = [];
+    for (let dec = Math.floor(lo); dec <= Math.ceil(hi); dec++) {
+      for (const m of mants) {
+        const t = m * 10 ** dec;
+        const u = Math.log10(t);
+        if (u >= lo - 1e-9 && u <= hi + 1e-9) TICKS.push(t);
+      }
+    }
+    if (TICKS.length >= 4) break;
+  }
   ctx.strokeStyle = '#e7e9ee'; ctx.lineWidth = 1.5; ctx.setLineDash([]);
   TICKS.forEach(t => {
     ctx.beginPath(); ctx.moveTo(X(t), py0); ctx.lineTo(X(t), py1); ctx.stroke();
