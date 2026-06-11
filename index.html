@@ -167,7 +167,7 @@ const COLUMNS = [
 
 function buildColumns(page) {
   const ovr = page.colOverrides || {};
-  let cols = COLUMNS.map(c => ovr[c.field] ? Object.assign({}, c, ovr[c.field]) : c);
+  let cols = COLUMNS.map(c => Object.assign({}, c, ovr[c.field] || {}));
   for (const xc of (page.extraColumns || [])) {
     const after = xc._after;
     const col = Object.assign({}, xc);
@@ -460,7 +460,7 @@ function buildOodChart(rows, xField, yField, chartType, page) {
     // Histogram
     const vals = rows.map(r => r[xField]).filter(v => v != null && isFinite(v));
     if (!vals.length) return;
-    const mn = Math.min(...vals), mx = Math.max(...vals);
+    const mn = vals.reduce((a, b) => Math.min(a, b), Infinity), mx = vals.reduce((a, b) => Math.max(a, b), -Infinity);
     const BINS = 25, bw = (mx - mn) / (BINS || 1);
     const regC = new Array(BINS).fill(0), oodC = new Array(BINS).fill(0);
     rows.forEach(r => {
@@ -631,7 +631,7 @@ function switchPage(key) {
   document.getElementById('page-title').textContent = page.title;
   document.title = page.title;
   [...els.nav.children].forEach(a => a.classList.toggle('active', a.dataset.key === page.key));
-  if (location.hash !== '#' + page.key) location.hash = page.key;
+  if (location.hash !== '#' + page.key) history.replaceState(null, '', '#' + page.key);
   loadPageText(page);
   if (page.type === 'table') renderTablePage(page); else renderPlaceholder();
 }
@@ -654,7 +654,6 @@ function main() {
   PAGES.forEach(p => {
     const a = document.createElement('a');
     a.textContent = p.title; a.dataset.key = p.key; a.href = '#' + p.key;
-    a.addEventListener('click', ev => { ev.preventDefault(); switchPage(p.key); });
     els.nav.appendChild(a);
   });
   els.filter.addEventListener('input', () => {
