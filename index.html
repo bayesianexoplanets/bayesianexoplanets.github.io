@@ -10,7 +10,6 @@
 <script src="https://cdn.jsdelivr.net/npm/marked@12/marked.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 <style>
   :root { --bg:#fafafa; --panel:#fff; --border:#ddd; --muted:#6b7280; --accent:#2563eb; }
   * { box-sizing: border-box; }
@@ -396,6 +395,16 @@ function drawNullCDF(canvas, mu, sigma, snr, nstSamplesStr) {
   }
 }
 
+function loadChartJs() {
+  return new Promise((resolve, reject) => {
+    if (typeof Chart !== 'undefined') { resolve(); return; }
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/chart.js@4';
+    s.onload = resolve; s.onerror = reject;
+    document.head.appendChild(s);
+  });
+}
+
 // OoD interactive chart (Chart.js)
 const OOD_SKIP = new Set([
   'TIC', 'TOI', 'proposed_toi', '_cand_idx', 'Has Visible TTVs', 'Interesting',
@@ -490,7 +499,8 @@ function buildOodChart(rows, xField, yField, chartType, page) {
   }
 }
 
-function setupOodPanel(rows, page) {
+async function setupOodPanel(rows, page) {
+  try { await loadChartJs(); } catch (e) { console.warn('Chart.js failed to load', e); return; }
   const cols = numericCols(rows);
   const selX = document.getElementById('ood-x');
   const selY = document.getElementById('ood-y');
