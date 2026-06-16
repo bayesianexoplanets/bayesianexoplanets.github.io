@@ -12,3 +12,4 @@ plots/unmatched.tsv
 plots/_broad_tau_fix.tsv
 plots/_broad_tau_nocand.tsv
 TESS/flux_audit.tsv
+threshold_calibration/
