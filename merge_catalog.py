@@ -53,8 +53,8 @@ def failures(sp1, snrd, snr, ntr, sh):
     f = []
     if sp1 >= SPURIOUS_MAX:
         f.append("spurious")
-    if snrd <= SNRD_MIN and snr <= SNR_OVERRIDE:
-        f.append("snrd")
+    # snrd (per-transit SNR-uniformity) test DISABLED as a pass/fail cut for now: at f=0 it
+    # over-rejects bright planets (see ROC f-calibration). Failing only snrd now passes.
     if ntr < NTRANSITS_MIN:
         f.append("ntransits")
     if sh and snrd > HARMONICS_SNRD and snr <= SNR_OVERRIDE:
@@ -62,11 +62,13 @@ def failures(sp1, snrd, snr, ntr, sh):
     return f
 
 
-def main(apply):
+def main(apply, tics_filter=None):
     w = pd.read_csv(TOIS)
     run = {}                      # (TIC, TOI) -> CatalogRun row
     for f in glob.glob(CAND + "/*.csv"):
         tic = int(os.path.basename(f).split(".")[0])
+        if tics_filter and tic not in tics_filter:
+            continue
         try:
             d = pd.read_csv(f, sep="\t")
         except Exception:
@@ -80,6 +82,8 @@ def main(apply):
     flips = {"pass->fail": 0, "fail->pass": 0}
 
     for tic, sub in w.groupby("TIC"):
+        if tics_filter and int(tic) not in tics_filter:
+            continue
         for known_idx, (wi, wrow) in enumerate(sub.iterrows()):
             toi = str(wrow["TOI"])
             r = run.get((int(tic), toi))
@@ -145,4 +149,5 @@ def _to_jpg(src, dst, max_w=900, quality=88):
 
 
 if __name__ == "__main__":
-    main(apply="--apply" in sys.argv)
+    tf = [int(a) for a in sys.argv[1:] if a.isdigit()]
+    main(apply="--apply" in sys.argv, tics_filter=set(tf) if tf else None)
