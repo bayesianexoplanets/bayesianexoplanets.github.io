@@ -77,7 +77,7 @@ def main(apply, tics_filter=None):
             run[(tic, str(r["TOI"]))] = r
     print(f"website rows={len(w)} | CatalogRun rows={len(run)} | TICs with CSV={len({k[0] for k in run})}")
 
-    updated = plots = 0
+    updated = plots = kept_better = 0
     unmatched = []
     flips = {"pass->fail": 0, "fail->pass": 0}
 
@@ -93,6 +93,14 @@ def main(apply, tics_filter=None):
             snr = float(r["SNR"]); snrd = float(r["snrd_pvalue"])
             sp1 = float(r["spurious1"]); ntr = int(r["num_available_transits"])
             ph = float(r["phase"]); tauf = float(r["tau"])
+            # keep-higher-SNR rule: only adopt the re-run if it improves on the committed fit.
+            # The matched-filter SNR is the period/phase discriminator (a 2:1 alias or a phase
+            # mis-seed has lower SNR than the true fit), so this keeps the committed value when the
+            # re-run regressed (harmonic snap to a worse ExoFOP period, or a multi-planet mis-seed)
+            # and only merges genuine recoveries. (User-approved; all merges verified vs RecoveryRun.)
+            if snr <= float(wrow["SNR"]):
+                kept_better += 1
+                continue
             fl = failures(sp1, snrd, snr, ntr, sharp(int(tic)))
             passed = len(fl) == 0
             mu = float(wrow["μ(SNR | null)"]); sig = float(wrow["σ(SNR | null)"])
@@ -128,7 +136,8 @@ def main(apply, tics_filter=None):
                 if apply:
                     print(f"  WARN missing plot {src}")
 
-    print(f"rows updated={updated} | plots refreshed={plots} | unmatched(kept)={len(unmatched)}")
+    print(f"rows updated={updated} | kept committed (re-run not better)={kept_better} | "
+          f"plots refreshed={plots} | unmatched(kept)={len(unmatched)}")
     print(f"pass/fail flips vs current catalog: {flips}")
     if unmatched:
         print("sample unmatched (kept as-is):", unmatched[:15])
