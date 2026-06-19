@@ -98,18 +98,25 @@ def main(apply, tics_filter=None):
             # mis-seed has lower SNR than the true fit), so this keeps the committed value when the
             # re-run regressed (harmonic snap to a worse ExoFOP period, or a multi-planet mis-seed)
             # and only merges genuine recoveries. (User-approved; all merges verified vs RecoveryRun.)
-            if snr <= float(wrow["SNR"]):
-                kept_better += 1
-                continue
             fl = failures(sp1, snrd, snr, ntr, sharp(int(tic)))
             passed = len(fl) == 0
+            was = bool(wrow["passed_all_tests"])
+            # keep-higher-SNR rule: only adopt the re-run if it improves on the committed fit.
+            # The matched-filter SNR is the period/phase discriminator (a 2:1 alias or a phase
+            # mis-seed has lower SNR than the true fit), so this keeps the committed value when the
+            # re-run regressed (harmonic snap to a worse ExoFOP period, or a multi-planet mis-seed)
+            # and only merges genuine recoveries. (User-approved; all merges verified vs RecoveryRun.)
+            # No-regression guard: also keep the committed fit if a higher-SNR re-run would flip a
+            # passing planet to failing -- e.g. snapping to the ExoFOP period reveals <3 transits
+            # (ntransits) at marginally higher SNR. A validated planet should not be demoted just
+            # because a slightly-higher-SNR fit lands on an unvalidatable period.
+            if snr <= float(wrow["SNR"]) or (was and not passed):
+                kept_better += 1
+                continue
             mu = float(wrow["μ(SNR | null)"]); sig = float(wrow["σ(SNR | null)"])
             log10p = float(norm.logsf((snr - mu) / sig) / LN10) if sig > 0 else wrow["log10(p value)"]
 
-            was = bool(wrow["passed_all_tests"])
-            if was and not passed:
-                flips["pass->fail"] += 1
-            elif passed and not was:
+            if passed and not was:
                 flips["fail->pass"] += 1
 
             upd = {
