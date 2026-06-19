@@ -28,6 +28,9 @@ MANUAL = {
     # different/spurious signal -> remove (user-confirmed).
     (67395329, "6873.01"), (92443533, "6812.01"), (156514476, "6884.01"),
     (192415680, "6041.01"), (406684949, "5442.01"),
+    # circumbinary TOI-1338 with huge TTVs: only a single planet transit is usable (the strong
+    # short-period signal is the eclipsing binary, not the planet) -> unvalidatable (user-confirmed).
+    (260128333, "1338.01"),
 }
 
 w = pd.read_csv(TOIS)
