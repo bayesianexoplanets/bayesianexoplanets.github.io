@@ -231,17 +231,16 @@ green) and *recent Venus* to *early Mars* for the optimistic zone (light green).
 
 ### TESS new candidates
 
-Markers are coloured by $\log_{10}(p)$, clipped to $[-3, 0]$. A dashed red ring
-marks candidates that fail at least one vetting test; gold stars mark candidates
-inside the optimistic habitable zone.
+Markers are coloured by $\log_{10}(p)$, clipped to $[-3, 0]$; a dashed red ring
+marks candidates that fail at least one vetting test.
 
 ![TESS candidates: insolation–Teff diagram with HZ overlays](habitable_zone.png)
 
-Of the 195 new candidates, three land inside the optimistic habitable zone
-(TIC 30853470, 52307802, 178709444) — all three also inside the conservative
-zone — but each fails at least one vetting test, so none currently passes. For
-comparison, 23 of the 5 245 known TOIs lie in the optimistic zone (17 pass all
-tests) and 13 in the conservative zone (11 pass).
+None of the 63 significant new candidates ($p \le 0.01$) lands inside the
+habitable zone. The few that did under the old Gaussian significance turn out to
+be only marginal ($p > 0.01$) under the heavy-tailed Singh-Maddala model, and so
+are excluded. For comparison, 20 of the 5 190 known TOIs lie in the optimistic
+zone (19 pass all vetting tests) and 12 in the conservative zone (all 12 pass).
 
 ### Kepler candidates (Robnik et al. 2026)
 

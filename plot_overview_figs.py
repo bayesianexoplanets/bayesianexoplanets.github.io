@@ -58,9 +58,9 @@ def fig_fit():
     plt.close(fig); print("wrote overview_nst_musigma.png")
 
 
-def fig_convergence(seeds=12):
-    """p-value estimator vs N samples: Gaussian, no-prior Burr (MLE), prior Burr (Bayes) vs true p=1e-4."""
-    ns = np.unique(np.geomspace(5, 100, 16, dtype=int))
+def fig_convergence(seeds=12, p_true=1e-2):
+    """p-value estimator vs N samples: Gaussian, no-prior Burr (MLE), prior Burr (Bayes) vs true p."""
+    ns = np.unique(np.geomspace(5, 1000, 22, dtype=int))
     rng = np.random.default_rng(0)
     # synthetic stars: per (seed, N) draw true params from the priors, generate N samples
     truth, datasets, testpts = [], [], []
@@ -68,7 +68,7 @@ def fig_convergence(seeds=12):
         c_t = 27.904 * np.exp(rng.normal(0, sm.CS)); k_t = 0.841 * np.exp(rng.normal(0, sm.KS))
         l_t = 4.864 + 1.816 * np.exp(rng.normal(0, sm.LS))
         d_full = stats.burr12(c=c_t, d=k_t, scale=l_t).rvs(size=ns.max(), random_state=rng)
-        tp = stats.burr12(c=c_t, d=k_t, scale=l_t).isf(1e-4)
+        tp = stats.burr12(c=c_t, d=k_t, scale=l_t).isf(p_true)
         for n in ns:
             truth.append((c_t, k_t, l_t)); datasets.append(d_full[:n]); testpts.append(tp)
     # prior-Burr (Bayes) for ALL (seed,N) at once on the GPU
@@ -93,25 +93,30 @@ def fig_convergence(seeds=12):
     for P, col, lab in [(P_gauss, "crimson", "Gaussian"), (P_mle, "forestgreen", "Singh-Maddala (no prior, MLE)"),
                         (P_prior, "navy", "Singh-Maddala (informed prior, Bayes)")]:
         lo, med, hi = band(P); axx.fill_between(ns, lo, hi, color=col, alpha=0.2); axx.plot(ns, med, color=col, lw=2, label=lab)
-    axx.hlines(1e-4, ns.min(), ns.max(), color="black", ls="dashed", lw=2, label="true $p = 10^{-4}$")
+    axx.hlines(p_true, ns.min(), ns.max(), color="black", ls="dashed", lw=2, label=r"true $p = 10^{-2}$")
     axx.loglog(); axx.set_xlabel("number of NST samples"); axx.set_ylabel(r"$p$-value estimate"); axx.legend(fontsize=9, loc="lower right")
-    axx.set_xlim(ns.min(), ns.max()); axx.set_ylim(1e-30, 5)   # clip the MLE's catastrophic small-N excursions
+    axx.set_xlim(ns.min(), ns.max()); axx.set_ylim(1e-10, 3)   # clip the MLE's small-N excursions
     fig.tight_layout(); fig.savefig(f"{HERE}/overview_nst_pvalue.png", dpi=130, bbox_inches="tight")
     plt.close(fig); print("wrote overview_nst_pvalue.png")
 
 
 def fig_pdist():
+    from scipy.stats import gaussian_kde
     known = pd.read_csv(f"{HERE}/tois.csv")
     new = pd.read_csv(f"{HERE}/tois_new.csv")
     kk = -known.loc[known["passed_all_tests"] == True, "log10(p value)"].to_numpy(float)
     nn = -new["log10(p value)"].to_numpy(float)
     kk = kk[np.isfinite(kk)]; nn = nn[np.isfinite(nn)]
+    xmax = max(kk.max(), nn.max())
+    xg = np.linspace(0.01, xmax, 600)
     fig, axx = plt.subplots(figsize=(7.5, 5.2))
-    bins = np.linspace(0, np.nanpercentile(np.concatenate([kk, nn]), 99), 60)
-    axx.hist(kk, bins=bins, histtype="step", density=True, color="navy", lw=1.6, label=f"known TOIs (n={len(kk)})")
-    axx.hist(nn, bins=bins, histtype="step", density=True, color="darkorange", lw=1.6, label=f"new candidates (n={len(nn)})")
+    for data, col, lab in [(kk, "navy", "known TOIs"), (nn, "darkorange", "new candidates")]:
+        y = gaussian_kde(data)(xg); y = y / y.max()          # P / P_max
+        axx.plot(xg, y, color=col, lw=2, label=lab)
+        axx.fill_between(xg, y, color=col, alpha=0.12)
     axx.axvline(2, color="red", ls="dashed", lw=1.5, label=r"$p = 0.01$")
-    axx.set_xlabel(r"$-\log_{10} p$ (Singh-Maddala)"); axx.set_ylabel("density"); axx.legend(fontsize=9)
+    axx.set_xlim(0.01, xmax); axx.set_ylim(0, None)
+    axx.set_xlabel(r"$-\log p$"); axx.set_ylabel(r"$P/P_{\max}$"); axx.legend(fontsize=10)
     fig.tight_layout(); fig.savefig(f"{HERE}/overview_pvalue_dist.png", dpi=130, bbox_inches="tight")
     plt.close(fig); print("wrote overview_pvalue_dist.png")
 
