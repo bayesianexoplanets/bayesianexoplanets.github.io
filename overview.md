@@ -147,31 +147,58 @@ events — the signature of an unmodeled systematic. Candidates with p-value
 
 The matched-filter SNR of pure noise depends on each star's variability in a
 complicated way, so no universal SNR threshold is reliable. Instead we measure
-each star's own noise floor empirically. Ten independent searches are run per
+each star's own noise floor empirically: ten independent searches are run per
 star with slightly perturbed search grids (different random seeds), so that the
-pipeline can only find noise peaks, never a coherent planet. The resulting
-max-SNR values form the star's null distribution, and a candidate's significance
-is
+pipeline can only find noise peaks, never a coherent planet. The ten resulting
+max-SNR values form the star's null distribution.
+
+These null SNRs are **not Gaussian** — they have a heavy right tail, so a normal
+model badly under-predicts how often noise alone reaches a high SNR and would
+wildly over-state significance. Across ~5000 stars the null is instead very well
+described by a **Singh-Maddala** (Burr Type XII) distribution, whose survival
+function (the probability that noise exceeds a given SNR) is
 
 $$
-p = 1 - \Phi\!\left(\frac{\mathrm{SNR}_\mathrm{cand} - \mu_\mathrm{null}}{\sigma_\mathrm{null}}\right),
+\mathrm{SF}(x \mid c,k,\lambda) = \big[\,1 + (x/\lambda)^{c}\,\big]^{-k}, \qquad c,k,\lambda > 0 .
 $$
 
-where $\mu_\mathrm{null}$ and $\sigma_\mathrm{null}$ are the mean and standard
-deviation of the null distribution. (Click any row in the catalog tables to see
-this distribution and the candidate's position in it.)
+![Empirical NST distribution vs the Singh-Maddala and Gaussian fits (density and survival function)](overview_nst_musigma.png)
 
-**How many NSTs are enough?** Tracking the convergence of $\mu$ and $\sigma$
-with up to ~100 NST runs per star shows both estimates stabilising within about
-five runs:
+The survival-function panel (right) makes the point: in the tail the Gaussian
+plunges far below the data, while the Singh-Maddala tracks it.
 
-![Convergence of μ and σ with the number of NSTs](overview_nst_musigma.png)
+**Per-star Bayesian fit.** With only ten samples per star a free three-parameter
+fit is noisy, so we fit $(c,k,\lambda)$ for each star by Hamiltonian Monte Carlo
+with informative log-normal priors learned from the ~1000 stars for which we ran
+100 NSTs:
 
-The implied p-value at the $p \approx 0.01$ significance level likewise
-converges within five to eight runs, so the ten used in production are
-comfortably sufficient:
+$$
+\frac{c}{27.9} \sim \mathrm{LogNormal}(0,0.47), \quad
+\frac{k}{0.84} \sim \mathrm{LogNormal}(0,0.83), \quad
+\frac{\lambda - 4.86}{1.82} \sim \mathrm{LogNormal}(0,0.91).
+$$
 
-![Gaussian p-value at the p ≈ 0.01 threshold vs number of NSTs](overview_nst_pvalue.png)
+A candidate's significance is then the **posterior-mean survival function** at its
+SNR, marginalised over the fit's parameter uncertainty,
+
+$$
+p = \mathbb{E}_{\text{posterior}}\!\big[\,\mathrm{SF}(\mathrm{SNR}_\mathrm{cand} \mid c,k,\lambda)\,\big] .
+$$
+
+Marginalising — rather than plugging in a single best-fit $(c,k,\lambda)$ — is
+essential: it fattens the tail to reflect that ten samples cannot fully pin down
+the distribution, yielding a properly conservative p-value. (Click any row in the
+catalog tables to see this survival function, the ten NST samples, and where the
+candidate falls.)
+
+**Does the prior help, and are ten NSTs enough?** On synthetic data we compare
+three estimators of the true p-value: the Gaussian, an unregularised
+(maximum-likelihood) Singh-Maddala, and the informed-prior Bayesian
+Singh-Maddala. The Gaussian is biased at every sample size; the unregularised fit
+is unbiased but noisy for few samples; the informed-prior fit is both unbiased and
+stable from a handful of NSTs onward, so the ten used in production suffice:
+
+![p-value estimators vs number of NST samples: Gaussian, no-prior and informed-prior Singh-Maddala](overview_nst_pvalue.png)
 
 **How significant are the candidates?** Comparing the $-\log_{10}(p)$
 distributions of known TOIs and our new candidates (larger means more

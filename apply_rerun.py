@@ -19,8 +19,8 @@ Stage-A plot file via ``catalog_period`` -> the read_known_planets_tess planet
 order (which names the plot files and indexes the ExoFOP TOI) — NOT via event_id,
 which shifts when a middle planet's vetting throws.
 
-Verified conventions: Duration = 2*Tau, Epoch = t_start + Phase,
-log10(p) = norm.logsf((SNR-μ)/σ)/ln(10), Radius_planet_err{p,m} = radius{p,m}.
+Verified conventions: Duration = 2*Tau, Epoch = t_start + Phase, Radius_planet_err{p,m} = radius{p,m},
+log10(p) = interp of the per-star Singh-Maddala posterior-mean-SF grid (sm_sf_grid) at the SNR.
 
 Dry-run by default (prints planned changes); pass --apply to write tois.csv + plots.
 """
@@ -32,6 +32,8 @@ os.chdir("/global/u2/j/julius")
 sys.path.insert(0, "/global/u2/j/julius")
 import numpy as np
 import pandas as pd
+sys.path.insert(0, "/global/u2/j/julius/TESS corrected")
+import sm_pvalue
 from scipy.stats import norm
 from TESS.load_tess import StarInfo_tess, read_known_planets_tess
 
@@ -138,8 +140,10 @@ def main(apply):
             sp1 = float(r["spurious1"]); ntr = int(r["num_available_transits"])
             fails = failures(sp1, snrd, snr, ntr, sharp)
             passed = len(fails) == 0
-            mu = float(wrow["μ(SNR | null)"]); sig = float(wrow["σ(SNR | null)"])
-            log10p = float(norm.logsf((snr - mu) / sig) / LN10) if sig > 0 else wrow["log10(p value)"]
+            # Singh-Maddala posterior-mean-SF p-value: interpolate the star's tabulated log10-SF grid.
+            log10p = sm_pvalue.log10p_from_grid(wrow["sm_sf_grid"], snr)
+            if not np.isfinite(log10p):
+                log10p = wrow["log10(p value)"]
 
             upd = {
                 "Period": float(r["period"]), "Phase": float(r["phase"]), "Tau": float(r["tau"]),

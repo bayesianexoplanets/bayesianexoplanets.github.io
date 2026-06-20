@@ -20,6 +20,8 @@ os.chdir("/global/u2/j/julius")
 sys.path.insert(0, "/global/u2/j/julius")
 import numpy as np
 import pandas as pd
+sys.path.insert(0, "/global/u2/j/julius/TESS corrected")
+import sm_pvalue
 from scipy.stats import norm
 from TESS.load_tess import StarInfo_tess, read_known_planets_tess
 
@@ -108,8 +110,10 @@ def main(apply):
             snr = float(r["SNR"]); snrd = float(r["snrd_pvalue"]); sp1 = float(r["spurious1"])
             ntr = int(r["num_available_transits"])
             fails = failed_list(sp1, snrd, snr, ntr, sharp)
-            mu = float(sib["μ(SNR | null)"]); sig = float(sib["σ(SNR | null)"])
-            log10p = float(norm.logsf((snr - mu) / sig) / LN10) if sig > 0 else sib["log10(p value)"]
+            # Singh-Maddala posterior-mean-SF p-value: interpolate the sibling star's log10-SF grid.
+            log10p = sm_pvalue.log10p_from_grid(sib["sm_sf_grid"], snr)
+            if not np.isfinite(log10p):
+                log10p = sib["log10(p value)"]
             row = {c: sib[c] for c in cols}     # start from sibling (per-star cols), then override
             row.update({
                 "TIC": tic, "TOI": r["TOI"],

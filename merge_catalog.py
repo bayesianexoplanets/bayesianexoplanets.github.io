@@ -7,8 +7,8 @@ For every (TIC, TOI) the CatalogRun produced, replace the recomputed columns in
 each planet's plot (``plots/{TIC}/{known_idx}.jpg`` ← ``CatalogRun/plots/{TIC}/{plot_index}.png``).
 Rows with no CatalogRun match keep their current values (reported).
 
-Conventions (verified): Duration=2·Tau, Epoch=t_start+Phase,
-log10(p)=norm.logsf((SNR−μ)/σ)/ln(10), Radius_planet_err{p,m}=radius{p,m}.
+Conventions (verified): Duration=2·Tau, Epoch=t_start+Phase, Radius_planet_err{p,m}=radius{p,m},
+log10(p)=interp of the per-star Singh-Maddala posterior-mean-SF grid (sm_sf_grid) at the SNR.
 TOI and plot_index come straight from the CatalogRun CSV (no read_known re-derivation).
 
 Dry-run by default; pass --apply to write tois.csv + plots.
@@ -20,6 +20,8 @@ import glob
 os.chdir("/global/u2/j/julius")
 import numpy as np
 import pandas as pd
+sys.path.insert(0, "/global/u2/j/julius/TESS corrected")
+import sm_pvalue
 from scipy.stats import norm
 
 HERE = "/global/u2/j/julius/TESS corrected"
@@ -113,8 +115,11 @@ def main(apply, tics_filter=None):
             if snr <= float(wrow["SNR"]) or (was and not passed):
                 kept_better += 1
                 continue
-            mu = float(wrow["μ(SNR | null)"]); sig = float(wrow["σ(SNR | null)"])
-            log10p = float(norm.logsf((snr - mu) / sig) / LN10) if sig > 0 else wrow["log10(p value)"]
+            # Singh-Maddala posterior-mean-SF p-value: interpolate the star's tabulated log10-SF grid
+            # at this SNR (sm_pvalue). Falls back to the stored value if the grid is missing.
+            log10p = sm_pvalue.log10p_from_grid(wrow["sm_sf_grid"], snr)
+            if not np.isfinite(log10p):
+                log10p = wrow["log10(p value)"]
 
             if passed and not was:
                 flips["fail->pass"] += 1
