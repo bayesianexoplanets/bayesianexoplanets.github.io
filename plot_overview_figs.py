@@ -107,15 +107,13 @@ def fig_pdist():
     kk = -known.loc[known["passed_all_tests"] == True, "log10(p value)"].to_numpy(float)
     nn = -new["log10(p value)"].to_numpy(float)
     kk = kk[np.isfinite(kk)]; nn = nn[np.isfinite(nn)]
-    xmax = max(kk.max(), nn.max())
-    xg = np.linspace(0.01, xmax, 600)
+    xg = np.linspace(2, 20, 600)                              # x from the p=0.01 cut out to -log p = 20
     fig, axx = plt.subplots(figsize=(7.5, 5.2))
     for data, col, lab in [(kk, "navy", "known TOIs"), (nn, "darkorange", "new candidates")]:
         y = gaussian_kde(data)(xg); y = y / y.max()          # P / P_max
         axx.plot(xg, y, color=col, lw=2, label=lab)
         axx.fill_between(xg, y, color=col, alpha=0.12)
-    axx.axvline(2, color="red", ls="dashed", lw=1.5, label=r"$p = 0.01$")
-    axx.set_xlim(0.01, xmax); axx.set_ylim(0, None)
+    axx.set_xlim(2, 20); axx.set_ylim(0, None)
     axx.set_xlabel(r"$-\log p$"); axx.set_ylabel(r"$P/P_{\max}$"); axx.legend(fontsize=10)
     fig.tight_layout(); fig.savefig(f"{HERE}/overview_pvalue_dist.png", dpi=130, bbox_inches="tight")
     plt.close(fig); print("wrote overview_pvalue_dist.png")

@@ -236,11 +236,11 @@ marks candidates that fail at least one vetting test.
 
 ![TESS candidates: insolation–Teff diagram with HZ overlays](habitable_zone.png)
 
-None of the 63 significant new candidates ($p \le 0.01$) lands inside the
-habitable zone. The few that did under the old Gaussian significance turn out to
-be only marginal ($p > 0.01$) under the heavy-tailed Singh-Maddala model, and so
-are excluded. For comparison, 20 of the 5 190 known TOIs lie in the optimistic
-zone (19 pass all vetting tests) and 12 in the conservative zone (all 12 pass).
+None of the 63 significant new candidates ($p \le 0.01$) falls inside the
+habitable zone; the few objects flagged by earlier, less conservative selections
+did not survive the tightened transit-count and Singh-Maddala significance cuts.
+For comparison, 20 of the 5 190 known TOIs lie in the optimistic zone (19 pass all
+vetting tests) and 12 in the conservative zone (all 12 pass).
 
 ### Kepler candidates (Robnik et al. 2026)
 
