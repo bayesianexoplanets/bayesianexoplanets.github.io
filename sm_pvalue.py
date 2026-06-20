@@ -9,7 +9,8 @@ SF is a mixture, so it is stored per star as log10(SF) tabulated on a shared SNR
 """
 import numpy as np
 
-XGRID = np.geomspace(1.5, 2500.0, 48)   # MUST match pvalue/fit_all.py
+# dense to 20 (nulls + steep SF transitions), coarse tail to 2500. MUST match pvalue/fit_all.py + index.html.
+XGRID = np.unique(np.concatenate([np.geomspace(1.5, 20.0, 65), np.geomspace(20.0, 2500.0, 16)]))
 LXG = np.log10(XGRID)
 
 

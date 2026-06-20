@@ -236,7 +236,7 @@ marks candidates that fail at least one vetting test.
 
 ![TESS candidates: insolation–Teff diagram with HZ overlays](habitable_zone.png)
 
-None of the 63 significant new candidates ($p \le 0.01$) falls inside the
+None of the 64 significant new candidates ($p \le 0.01$) falls inside the
 habitable zone; the few objects flagged by earlier, less conservative selections
 did not survive the tightened transit-count and Singh-Maddala significance cuts.
 For comparison, 20 of the 5 190 known TOIs lie in the optimistic zone (19 pass all

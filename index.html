@@ -276,8 +276,10 @@ function fmtPMasym(errpField, errmField) {
 // NST null distribution: empirical CDF (step function) + fitted Gaussian CDF
 // Shared SNR grid on which each star's Singh-Maddala posterior-mean log10(survival function) is
 // tabulated (the 'sm_sf_grid' column). MUST match pvalue/fit_all.py and sm_pvalue.py.
-const SM_XGRID = (() => { const n = 48, a = Math.log(1.5), b = Math.log(2500);
-  return Array.from({ length: n }, (_, i) => Math.exp(a + (b - a) * i / (n - 1))); })();
+const SM_XGRID = (() => {       // dense to 20 + coarse tail to 2500; MUST match pvalue/fit_all.py
+  const gs = (a, b, n) => { const la = Math.log(a), lb = Math.log(b);
+    return Array.from({ length: n }, (_, i) => Math.exp(la + (lb - la) * i / (n - 1))); };
+  return gs(1.5, 20, 65).concat(gs(20, 2500, 16).slice(1)); })();   // drop duplicate 20 -> 80 points
 const SM_LXG = SM_XGRID.map(Math.log10);
 
 function smInterp(lx, grid) {            // log10(SF) at log10(SNR)=lx; clamp at ends (= np.interp)
