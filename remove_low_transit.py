@@ -31,6 +31,9 @@ MANUAL = {
     # circumbinary TOI-1338 with huge TTVs: only a single planet transit is usable (the strong
     # short-period signal is the eclipsing binary, not the planet) -> unvalidatable (user-confirmed).
     (260128333, "1338.01"),
+    # only 2 real transits: the committed 369d is a 1/2-harmonic that over-counts transit windows;
+    # the true ExoFOP period (739d) yields just 2 transits -> unvalidatable (user-confirmed).
+    (280865159, "1894.01"),
 }
 
 w = pd.read_csv(TOIS)
