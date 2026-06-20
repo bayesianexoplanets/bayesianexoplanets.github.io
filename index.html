@@ -289,8 +289,22 @@ function smInterp(lx, grid) {            // log10(SF) at log10(SNR)=lx; clamp at
   return grid[i - 1] + t * (grid[i] - grid[i - 1]);
 }
 
-// Per-candidate survival-function (1 - CDF, log scale) plot: the star's Singh-Maddala posterior-mean
-// SF model vs the empirical NST survival function, with the candidate's SNR and p-value.
+// "10^exp" with a proper raised superscript (and unicode minus), right-aligned to end at xRight.
+function drawPow10(ctx, exp, xRight, y, F) {
+  ctx.fillStyle = '#5b6472';
+  if (exp === 0) { ctx.font = F + 'px sans-serif'; ctx.textAlign = 'right'; ctx.fillText('1', xRight, y + F * 0.34); return; }
+  const sup = (exp < 0 ? '−' : '') + Math.abs(exp);
+  const fs = Math.round(F * 0.68);
+  ctx.textAlign = 'left';
+  ctx.font = F + 'px sans-serif'; const w10 = ctx.measureText('10').width;
+  ctx.font = fs + 'px sans-serif'; const ws = ctx.measureText(sup).width;
+  const sx = xRight - (w10 + ws);
+  ctx.font = F + 'px sans-serif'; ctx.fillText('10', sx, y + F * 0.34);
+  ctx.font = fs + 'px sans-serif'; ctx.fillText(sup, sx + w10, y + F * 0.34 - F * 0.46);
+}
+
+// Per-candidate survival-function (log scale) panel: the star's Singh-Maddala posterior-mean SF
+// model vs the empirical NST survival function, with the candidate's SNR and p-value.
 function drawNullSF(canvas, sfGridStr, snr, log10p, nstSamplesStr) {
   const W = 1300, H = 800, ctx = canvas.getContext('2d');
   canvas.width = W; canvas.height = H;
@@ -308,18 +322,17 @@ function drawNullSF(canvas, sfGridStr, snr, log10p, nstSamplesStr) {
   snr = Math.max(snr, 1.001);
   if (log10p == null || !isFinite(log10p)) log10p = smInterp(Math.log10(snr), grid);
 
-  const px0 = 128, px1 = W - 40, py0 = 48, py1 = H - 104;
-  // x: log10(SNR), spanning the NST samples and the candidate
+  const px0 = 132, px1 = W - 46, py0 = 54, py1 = H - 100;
   let loSNR = hasEmp ? Math.min(xs[0] * 0.85, snr * 0.7) : snr * 0.6;
   loSNR = Math.max(loSNR, 1.5);
   const hiSNR = Math.max(snr, hasEmp ? xs[xs.length - 1] : 0) * 1.15;
   const lo = Math.log10(loSNR), hi = Math.log10(hiSNR);
-  // y: log10(SF), from ~1 (top) down to a bit below the candidate p
-  const yTop = 0.2, yBot = Math.min(log10p, hasEmp ? Math.log10(1 / xs.length) : 0) - 0.7;
+  const yTop = 0.18, yBot = Math.min(log10p, hasEmp ? Math.log10(1 / xs.length) : 0) - 0.55;
   const X = s => px0 + (Math.log10(Math.max(s, loSNR)) - lo) / (hi - lo) * (px1 - px0);
   const Y = ly => py0 + (yTop - ly) / (yTop - yBot) * (py1 - py0);
+  const modelY = s => Y(smInterp(Math.log10(s), grid));
 
-  // x gridlines (1-2-5 per decade)
+  // x ticks (1-2-5 per decade); y decade ticks, thinned for large spans
   const tickSets = [[1, 2, 5], [1, 1.5, 2, 3, 4, 5, 6, 8]];
   let TICKS = [];
   for (const mants of tickSets) {
@@ -329,99 +342,102 @@ function drawNullSF(canvas, sfGridStr, snr, log10p, nstSamplesStr) {
         if (u >= lo - 1e-9 && u <= hi + 1e-9) TICKS.push(t); }
     if (TICKS.length >= 4) break;
   }
-  // y decade ticks (0, -1, -2, ...)
+  const dstep = Math.max(1, Math.ceil((yTop - yBot) / 9));
   const YT = [];
-  for (let d = 0; d >= Math.floor(yBot); d--) if (d <= yTop + 1e-9) YT.push(d);
-  ctx.strokeStyle = '#e7e9ee'; ctx.lineWidth = 1.5; ctx.setLineDash([]);
+  for (let d = 0; d >= Math.floor(yBot); d -= dstep) if (d <= yTop + 1e-9) YT.push(d);
+
+  // light gridlines
+  ctx.strokeStyle = '#eef0f4'; ctx.lineWidth = 1.5; ctx.setLineDash([]);
   TICKS.forEach(t => { ctx.beginPath(); ctx.moveTo(X(t), py0); ctx.lineTo(X(t), py1); ctx.stroke(); });
   YT.forEach(d => { ctx.beginPath(); ctx.moveTo(px0, Y(d)); ctx.lineTo(px1, Y(d)); ctx.stroke(); });
 
-  // Singh-Maddala posterior-mean SF (model), evaluated per pixel from the grid
+  // model SF: soft fill under the curve, then the smooth curve
   ctx.beginPath();
   for (let px = px0; px <= px1; px++) {
-    const ly = smInterp(lo + (px - px0) / (px1 - px0) * (hi - lo), grid);
-    px === px0 ? ctx.moveTo(px, Y(ly)) : ctx.lineTo(px, Y(ly));
+    const yy = Y(smInterp(lo + (px - px0) / (px1 - px0) * (hi - lo), grid));
+    px === px0 ? ctx.moveTo(px, yy) : ctx.lineTo(px, yy);
   }
-  ctx.strokeStyle = '#2f7fc1'; ctx.lineWidth = 4; ctx.stroke();
+  ctx.lineTo(px1, py1); ctx.lineTo(px0, py1); ctx.closePath();
+  ctx.fillStyle = 'rgba(47,127,193,0.08)'; ctx.fill();
+  ctx.beginPath();
+  for (let px = px0; px <= px1; px++) {
+    const yy = Y(smInterp(lo + (px - px0) / (px1 - px0) * (hi - lo), grid));
+    px === px0 ? ctx.moveTo(px, yy) : ctx.lineTo(px, yy);
+  }
+  ctx.strokeStyle = '#1f6fb2'; ctx.lineWidth = 4.5; ctx.stroke();
 
-  // Empirical SF (steps + dots): fraction of NST samples >= x
+  // empirical SF: clean white-edged circles at SF = (n-j)/n (no staircase)
   if (hasEmp) {
     const n = xs.length;
-    ctx.strokeStyle = '#123a6d'; ctx.lineWidth = 3; ctx.setLineDash([7, 5]);
-    ctx.beginPath(); ctx.moveTo(X(loSNR), Y(0));               // SF = 1 left of the first sample
-    for (let i = 0; i < n; i++) {
-      const lyB = Math.log10((n - i) / n);                     // level on [x_{i-1}, x_i)
-      ctx.lineTo(X(xs[i]), Y(lyB));
-      const lyA = (i < n - 1) ? Math.log10((n - i - 1) / n) : yBot;
-      ctx.lineTo(X(xs[i]), Y(lyA));                            // drop at x_i
-    }
-    ctx.stroke(); ctx.setLineDash([]);
-    ctx.fillStyle = '#123a6d';
-    for (let i = 0; i < n - 1; i++) {
-      ctx.beginPath(); ctx.arc(X(xs[i]), Y(Math.log10((n - i - 1) / n)), 6, 0, 2 * Math.PI); ctx.fill();
+    for (let j = 0; j < n; j++) {
+      ctx.beginPath(); ctx.arc(X(xs[j]), Y(Math.log10((n - j) / n)), 8, 0, 2 * Math.PI);
+      ctx.fillStyle = '#143b66'; ctx.fill();
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = 2.5; ctx.stroke();
     }
   }
 
-  // Candidate: vertical SNR line + dot at the model p
-  ctx.beginPath(); ctx.setLineDash([14, 9]); ctx.strokeStyle = '#dc2626'; ctx.lineWidth = 3.5;
+  // candidate: soft vertical guide + marker on the model curve
+  ctx.beginPath(); ctx.setLineDash([6, 7]); ctx.strokeStyle = 'rgba(214,69,63,0.85)'; ctx.lineWidth = 2.5;
   ctx.moveTo(X(snr), py0); ctx.lineTo(X(snr), py1); ctx.stroke(); ctx.setLineDash([]);
-  ctx.fillStyle = '#dc2626'; ctx.beginPath(); ctx.arc(X(snr), Y(log10p), 8, 0, 2 * Math.PI); ctx.fill();
+  ctx.beginPath(); ctx.arc(X(snr), modelY(snr), 9.5, 0, 2 * Math.PI);
+  ctx.fillStyle = '#d6453f'; ctx.fill(); ctx.strokeStyle = '#fff'; ctx.lineWidth = 2.5; ctx.stroke();
 
-  // axes frame
-  ctx.strokeStyle = '#374151'; ctx.lineWidth = 2.5;
+  // axes (left + bottom only)
+  ctx.strokeStyle = '#c3cad6'; ctx.lineWidth = 2;
   ctx.beginPath(); ctx.moveTo(px0, py0); ctx.lineTo(px0, py1); ctx.lineTo(px1, py1); ctx.stroke();
 
   // x tick labels
-  ctx.fillStyle = '#374151'; ctx.font = '26px sans-serif'; ctx.textAlign = 'center'; ctx.lineWidth = 2;
+  ctx.fillStyle = '#5b6472'; ctx.font = '26px sans-serif'; ctx.textAlign = 'center'; ctx.lineWidth = 2;
+  ctx.strokeStyle = '#c3cad6';
   TICKS.forEach(t => {
-    ctx.beginPath(); ctx.moveTo(X(t), py1); ctx.lineTo(X(t), py1 + 10); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(X(t), py1); ctx.lineTo(X(t), py1 + 9); ctx.stroke();
     ctx.fillText(String(t), X(t), py1 + 40);
   });
-  ctx.font = '30px sans-serif'; ctx.fillText('SNR  (log scale)', (px0 + px1) / 2, H - 28);
+  ctx.fillStyle = '#374151'; ctx.font = '29px sans-serif';
+  ctx.fillText('matched-filter SNR', (px0 + px1) / 2, H - 26);
 
-  // y tick labels (10^d)
-  ctx.textAlign = 'right'; ctx.font = '24px sans-serif'; ctx.lineWidth = 2;
+  // y tick labels (proper 10^n superscripts)
+  ctx.strokeStyle = '#c3cad6'; ctx.lineWidth = 2;
   YT.forEach(d => {
-    ctx.beginPath(); ctx.moveTo(px0 - 10, Y(d)); ctx.lineTo(px0, Y(d)); ctx.stroke();
-    ctx.fillText(d === 0 ? '1' : '10^' + d, px0 - 16, Y(d) + 8);
+    ctx.beginPath(); ctx.moveTo(px0 - 9, Y(d)); ctx.lineTo(px0, Y(d)); ctx.stroke();
+    drawPow10(ctx, d, px0 - 16, Y(d), 24);
   });
-  ctx.save(); ctx.translate(26, (py0 + py1) / 2); ctx.rotate(-Math.PI / 2);
-  ctx.textAlign = 'center'; ctx.font = '29px sans-serif';
-  ctx.fillText('Survival function   p = 1 - CDF   (log scale)', 0, 0); ctx.restore();
+  ctx.save(); ctx.translate(30, (py0 + py1) / 2); ctx.rotate(-Math.PI / 2);
+  ctx.fillStyle = '#374151'; ctx.textAlign = 'center'; ctx.font = '28px sans-serif';
+  ctx.fillText('survival function   p = P(noise ≥ SNR)', 0, 0); ctx.restore();
 
   // p-value label
   const pval = 10 ** log10p;
   const pStr = (pval < 1e-4 || pval === 0) ? (log10p <= -300 ? '<1e-300' : pval.toExponential(2)) : pval.toFixed(4);
 
-  // legend (bottom-left, where the SF has decayed)
+  // legend (lower-left, over the light fill)
   const items = [
-    { label: 'Null distribution (Singh-Maddala SF)',
-      draw: cy => { ctx.strokeStyle = '#2f7fc1'; ctx.lineWidth = 4; ctx.setLineDash([]);
-        ctx.beginPath(); ctx.moveTo(0, cy); ctx.lineTo(48, cy); ctx.stroke(); } },
+    { label: 'Singh–Maddala null SF',
+      draw: cy => { ctx.strokeStyle = '#1f6fb2'; ctx.lineWidth = 4.5; ctx.setLineDash([]);
+        ctx.beginPath(); ctx.moveTo(2, cy); ctx.lineTo(46, cy); ctx.stroke(); } },
   ];
   if (hasEmp) items.push(
-    { label: `NST samples, empirical SF (n = ${xs.length})`,
-      draw: cy => { ctx.strokeStyle = '#123a6d'; ctx.lineWidth = 3; ctx.setLineDash([7, 5]);
-        ctx.beginPath(); ctx.moveTo(0, cy); ctx.lineTo(48, cy); ctx.stroke(); ctx.setLineDash([]);
-        ctx.fillStyle = '#123a6d'; ctx.beginPath(); ctx.arc(24, cy, 6, 0, 2 * Math.PI); ctx.fill(); } });
+    { label: 'NST samples (empirical SF)',
+      draw: cy => { ctx.beginPath(); ctx.arc(24, cy, 8, 0, 2 * Math.PI);
+        ctx.fillStyle = '#143b66'; ctx.fill(); ctx.strokeStyle = '#fff'; ctx.lineWidth = 2.5; ctx.stroke(); } });
   items.push(
-    { label: `Candidate SNR,  p = ${pStr}`,
-      draw: cy => { ctx.strokeStyle = '#dc2626'; ctx.lineWidth = 3.5; ctx.setLineDash([14, 9]);
-        ctx.beginPath(); ctx.moveTo(0, cy); ctx.lineTo(48, cy); ctx.stroke(); ctx.setLineDash([]); } });
+    { label: `candidate   p = ${pStr}`,
+      draw: cy => { ctx.beginPath(); ctx.arc(24, cy, 9, 0, 2 * Math.PI);
+        ctx.fillStyle = '#d6453f'; ctx.fill(); ctx.strokeStyle = '#fff'; ctx.lineWidth = 2.5; ctx.stroke(); } });
 
   ctx.font = '25px sans-serif';
-  const lw = 64 + Math.max(...items.map(it => ctx.measureText(it.label).width)) + 24;
-  const lh = 26 + items.length * 42;
-  const lx = px1 - lw - 22, ly = py1 - lh - 18;
-  ctx.fillStyle = 'rgba(255,255,255,0.94)'; ctx.strokeStyle = '#d6dae1'; ctx.lineWidth = 1.5;
+  const lw = 70 + Math.max(...items.map(it => ctx.measureText(it.label).width)) + 22;
+  const lh = 24 + items.length * 44;
+  const lx = px0 + 20, ly = py1 - lh - 20;
+  ctx.fillStyle = 'rgba(255,255,255,0.92)'; ctx.strokeStyle = '#e2e6ec'; ctx.lineWidth = 1.5;
   ctx.beginPath();
-  if (ctx.roundRect) ctx.roundRect(lx, ly, lw, lh, 10); else ctx.rect(lx, ly, lw, lh);
+  if (ctx.roundRect) ctx.roundRect(lx, ly, lw, lh, 12); else ctx.rect(lx, ly, lw, lh);
   ctx.fill(); ctx.stroke();
   ctx.textAlign = 'left';
   items.forEach((it, i) => {
-    const cy = ly + 36 + i * 42;
+    const cy = ly + 38 + i * 44;
     ctx.save(); ctx.translate(lx + 16, 0); it.draw(cy); ctx.restore();
-    ctx.fillStyle = '#1f2937'; ctx.fillText(it.label, lx + 80, cy + 8);
+    ctx.fillStyle = '#26303d'; ctx.fillText(it.label, lx + 82, cy + 8);
   });
 }
 
