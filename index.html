@@ -329,7 +329,10 @@ function drawNullSF(canvas, sfGridStr, snr, log10p, nstSamplesStr) {
   loSNR = Math.max(loSNR, 1.5);
   const hiSNR = Math.max(snr, hasEmp ? xs[xs.length - 1] : 0) * 1.15;
   const lo = Math.log10(loSNR), hi = Math.log10(hiSNR);
-  const yTop = 0.18, yBot = Math.min(log10p, hasEmp ? Math.log10(1 / xs.length) : 0) - 0.55;
+  const yTop = 0.18;
+  // include the curve's rightmost (lowest) point so the model never drops below the x-axis
+  const yCurveMin = smInterp(hi, grid);
+  const yBot = Math.min(log10p, yCurveMin, hasEmp ? Math.log10(1 / xs.length) : 0) - 0.55;
   const X = s => px0 + (Math.log10(Math.max(s, loSNR)) - lo) / (hi - lo) * (px1 - px0);
   const Y = ly => py0 + (yTop - ly) / (yTop - yBot) * (py1 - py0);
   const modelY = s => Y(smInterp(Math.log10(s), grid));
