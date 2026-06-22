@@ -34,6 +34,13 @@ MANUAL = {
     # only 2 real transits: the committed 369d is a 1/2-harmonic that over-counts transit windows;
     # the true ExoFOP period (739d) yields just 2 transits -> unvalidatable (user-confirmed).
     (280865159, "1894.01"),
+    # catalog counts 6 transit windows with data, but only 2 are real signal-bearing transits
+    # (the other 4 windows have only sparse/gap-edge coverage) -> unvalidatable (user-confirmed).
+    (347332255, "1835.01"),
+    # catalog over-counts transit windows; only 2 real transits -> unvalidatable (user-confirmed).
+    (431514478, "1475.01"),
+    # catalog counts 25 transit windows but it is a single-transit event -> unvalidatable (user-confirmed).
+    (220459976, "285.01"),
 }
 
 w = pd.read_csv(TOIS)

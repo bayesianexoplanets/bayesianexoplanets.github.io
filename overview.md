@@ -239,7 +239,7 @@ marks candidates that fail at least one vetting test.
 None of the 64 significant new candidates ($p \le 0.01$) falls inside the
 habitable zone; the few objects flagged by earlier, less conservative selections
 did not survive the tightened transit-count and Singh-Maddala significance cuts.
-For comparison, 20 of the 5 190 known TOIs lie in the optimistic zone (19 pass all
+For comparison, 20 of the 5 187 known TOIs lie in the optimistic zone (19 pass all
 vetting tests) and 12 in the conservative zone (all 12 pass).
 
 ### Kepler candidates (Robnik et al. 2026)
