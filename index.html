@@ -116,6 +116,24 @@
 </div>
 
 <script>
+const COLUMNS_KEPLER_NEW = [
+  { title: 'Kepler ID',    field: 'kepid',            sorter: 'number',  hozAlign: 'right',  width: 110, frozen: true, formatter: fmtInt },
+  { title: 'Period [d]',   field: 'period',           sorter: 'number',  hozAlign: 'right',  width: 140, formatter: fmtPM('err_period') },
+  { title: 'Epoch [BKJD]', field: 'epoch',            sorter: 'number',  hozAlign: 'right',  width: 150, formatter: fmtEpoch('err_epoch', 4) },
+  { title: 'Duration [d]', field: 'transit_duration', sorter: 'number',  hozAlign: 'right',  width: 130, formatter: fmtPM('err_tau') },
+  { title: 'SNR',          field: 'SNR',              sorter: 'number',  hozAlign: 'right',  width: 85,  formatter: fmtSig },
+  { title: 'Rₚ [R⊕]',  field: 'radius',           sorter: 'number',  hozAlign: 'right',  width: 120, formatter: fmtPMasym('radiusp', 'radiusm') },
+  { title: 'R★ [R☉]',  field: 'radius_star',      sorter: 'number',  hozAlign: 'right',  width: 110, formatter: fmtPMasym('radius_err_high', 'radius_err_low') },
+  { title: 'M★ [M☉]',  field: 'mass',             sorter: 'number',  hozAlign: 'right',  width: 90,  formatter: fmtSig },
+  { title: 'Teff [K]',    field: 'teff',             sorter: 'number',  hozAlign: 'right',  width: 90,  formatter: fmtSig },
+  { title: 'logg',         field: 'logg',             sorter: 'number',  hozAlign: 'right',  width: 75,  formatter: fmtSig },
+  { title: '[Fe/H]',       field: 'feh',              sorter: 'number',  hozAlign: 'right',  width: 75,  formatter: fmtSig },
+  { title: 'Insolation',   field: 'insol',            sorter: 'number',  hozAlign: 'right',  width: 100, formatter: fmtSig },
+  { title: 'HZ',           field: 'hz',               sorter: 'boolean', hozAlign: 'center', width: 55,  formatter: fmtPass },
+  { title: 'p-value',      field: 'pvalue',           sorter: 'number',  hozAlign: 'right',  width: 100, formatter: fmtSig },
+  { title: 'log B',        field: 'logB',             sorter: 'number',  hozAlign: 'right',  width: 85,  formatter: fmtSig },
+];
+
 const COLUMNS_KOI = [
   { title: 'Kepler ID',    field: 'kepid',            sorter: 'number',  hozAlign: 'right',  width: 110, frozen: true, formatter: fmtInt },
   { title: 'KOI',          field: 'KOI',              sorter: 'number',  hozAlign: 'right',  width: 90,  formatter: fmtNum(2) },
@@ -143,7 +161,13 @@ const PAGES = [
     plot:  d => `plots_new/${d.TIC}/${d._cand_idx}.jpg`,
     ptitle:d => `TIC ${d.TIC} · proposed TOI ${d.proposed_toi != null ? Number(d.proposed_toi).toFixed(2) : ''} · P=${(+d.Period).toFixed(4)} d, Epoch=${(+d.Epoch).toFixed(4)} BTJD, Dur=${(+d.Duration).toFixed(4)} d · SNR=${(+d.SNR).toFixed(1)}` },
   { key: 'keplercat',  title: 'Kepler Exoplanet Catalog', md: 'kepler_catalog.md', type: 'placeholder' },
-  { key: 'keplernew',  title: 'Kepler New Candidates',    md: 'kepler_new.md',     type: 'placeholder' },
+  { key: 'keplernew',  title: 'Kepler New Candidates',    md: 'kepler_new.md',     type: 'table', csv: 'kepler_online.csv',
+    downloadFilename: 'kepler_new_candidates.csv',
+    hasOodChart: true,
+    columns: COLUMNS_KEPLER_NEW,
+    initialSort: [{ column: 'SNR', dir: 'desc' }],
+    filterFields: ['kepid'], filterPlaceholder: 'Filter Kepler ID…',
+    nst: false },
   { key: 'keplerttvs', title: 'Kepler TTVs',              md: 'kepler_ttvs.md',    type: 'table', csv: 'kepler_ttvs_overview.csv',
     columns: COLUMNS_KOI, initialSort: [{ column: 'snr', dir: 'desc' }],
     filterFields: ['kepid', 'KOI'], filterPlaceholder: 'Filter Kepler ID or KOI…',
@@ -462,6 +486,11 @@ const OOD_SKIP = new Set([
   'failed_tests', 'nst_samples', 'sm_sf_grid', 'passed_all_tests', 'ood_pvalue', 'outlier_score',
   'Multiplicity', 'err_Period', 'err_Epoch', 'err_Duration',
   'Radius_planet_errp', 'Radius_planet_errm',
+  // Kepler new candidates
+  '', 'kepid', 'epoch', 'err_period', 'err_epoch', 'err_tau',
+  'radiusp', 'radiusm', 'mass_err_high', 'mass_err_low',
+  'E_Teff', 'e_Teff', 'E_logg', 'e_logg', 'E_FeH', 'e_FeH',
+  'radius_err_high', 'radius_err_low',
 ]);
 
 function numericCols(rows) {
@@ -566,8 +595,8 @@ async function setupOodPanel(rows, page) {
       sel.appendChild(opt);
     });
   });
-  selX.value = cols.includes('Period') ? 'Period' : cols[0];
-  selY.value = cols.includes('Radius_planet') ? 'Radius_planet' : (cols[1] || cols[0]);
+  selX.value = cols.includes('Period') ? 'Period' : (cols.includes('period') ? 'period' : cols[0]);
+  selY.value = cols.includes('Radius_planet') ? 'Radius_planet' : (cols.includes('radius') ? 'radius' : (cols[1] || cols[0]));
 
   const redraw = () => {
     const ct = document.querySelector('input[name="ood-type"]:checked').value;
