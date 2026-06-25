@@ -43,9 +43,9 @@
   #toolbar { padding: 8px 20px; background: #f3f4f6; border-bottom: 1px solid var(--border); display: flex; gap: 12px; align-items: center; font-size: 0.85rem; }
   #toolbar input { padding: 4px 10px; font-size: 0.85rem; width: 280px; border: 1px solid var(--border); border-radius: 4px; }
   #toolbar .hint { color: var(--muted); }
-  #download-btn, #ood-toggle { padding: 4px 12px; font-size: 0.82rem; border: 1px solid var(--border); border-radius: 4px; background: #fff; cursor: pointer; color: #374151; white-space: nowrap; }
-  #download-btn:hover, #ood-toggle:hover { background: #e5e7eb; }
-  #ood-toggle.open { background: #dbeafe; border-color: #93c5fd; color: #1d4ed8; }
+  #download-btn, #ood-toggle, #extended-toggle { padding: 4px 12px; font-size: 0.82rem; border: 1px solid var(--border); border-radius: 4px; background: #fff; cursor: pointer; color: #374151; white-space: nowrap; }
+  #download-btn:hover, #ood-toggle:hover, #extended-toggle:hover { background: #e5e7eb; }
+  #ood-toggle.open, #extended-toggle.open { background: #dbeafe; border-color: #93c5fd; color: #1d4ed8; }
   #downloads { display: flex; gap: 8px; }
   .dl-btn { display: inline-flex; align-items: center; padding: 3px 10px; font-size: 0.82rem; border: 1px solid var(--border); border-radius: 4px; background: #fff; color: #374151; text-decoration: none; white-space: nowrap; }
   .dl-btn:hover { background: #f3f4f6; color: #111; border-color: #9ca3af; }
@@ -92,6 +92,7 @@
     <input id="filter" placeholder="Filter TIC or TOI&hellip;" autocomplete="off">
     <button id="download-btn" type="button" style="display:none">&#8595; CSV</button>
     <button id="ood-toggle" type="button" style="display:none">Interactive plot</button>
+    <button id="extended-toggle" type="button" style="display:none">Show extended catalog</button>
     <div id="downloads"></div>
     <span class="hint">Click any row to see its diagnostic plots &middot; Click column headers to sort</span>
   </div>
@@ -149,11 +150,13 @@ const PAGES = [
   { key: 'tess',      title: 'TESS Exoplanet Catalog',   md: 'tess.md',           type: 'table', csv: 'tois.csv',
     downloadFilename: 'tess_exoplanet_catalog.csv',
     hasOodChart: true,
+    collapsible: true,
     plot:  d => `plots/${d.TIC}/${d.known_idx}.jpg`,
     ptitle:d => `TIC ${d.TIC} · TOI ${d.TOI} · planet ${d.known_idx + 1} · P=${(+d.Period).toFixed(4)} d, Epoch=${(+d.Epoch).toFixed(4)} BTJD, Dur=${(+d.Duration).toFixed(4)} d · SNR=${(+d.SNR).toFixed(1)}` },
   { key: 'tessnew',   title: 'TESS New Candidates',      md: 'tess_new.md',       type: 'table', csv: 'tois_new.csv',
     downloadFilename: 'tess_new_candidates.csv',
     hasOodChart: true,
+    collapsible: true,
     colOverrides: { TOI: { visible: false } },
     extraColumns: [
       { title: 'Proposed TOI', field: 'proposed_toi', sorter: 'number', hozAlign: 'right', width: 110, formatter: fmtTOI, _after: 'TIC' },
@@ -197,6 +200,10 @@ const COLUMNS = [
   { title: 'σ(null)', field: 'σ(SNR | null)',   sorter: 'number',  hozAlign: 'right',  width: 80,  formatter: fmtSig },
 ];
 
+// Columns shown by default on the collapsible TESS tables; everything else is hidden until the
+// user clicks "Show extended catalog". (proposed_toi is the TOI-equivalent for New Candidates.)
+const TESS_DEFAULT_FIELDS = new Set(['TIC', 'TOI', 'proposed_toi', 'Period', 'SNR', 'Radius_planet', 'log10(p value)']);
+
 function buildColumns(page) {
   const ovr = page.colOverrides || {};
   let cols = COLUMNS.map(c => Object.assign({}, c, ovr[c.field] || {}));
@@ -210,6 +217,9 @@ function buildColumns(page) {
     }
     cols.push(col);
   }
+  // collapsible tables start with only the core columns visible (extended ones hidden)
+  if (page.collapsible)
+    cols = cols.map(c => TESS_DEFAULT_FIELDS.has(c.field) ? c : Object.assign({}, c, { visible: false }));
   return cols;
 }
 
@@ -714,6 +724,26 @@ async function renderTablePage(page) {
     columns: page.columns || buildColumns(page),
   });
   if (page.plot) table.on('rowClick', (e, row) => showPlot(page, row.getData()));
+
+  // "Show extended catalog" toggle: collapsible TESS tables start with only the core columns;
+  // this reveals/hides all the extra columns (tests, stellar params, null stats, …).
+  if (page.collapsible) {
+    els.extendedToggle.style.display = '';
+    els.extendedToggle.textContent = 'Show extended catalog';
+    els.extendedToggle.classList.remove('open');
+    let extOpen = false;
+    els.extendedToggle.onclick = () => {
+      extOpen = !extOpen;
+      table.getColumns().forEach(col => {
+        const f = col.getField();
+        if (f && !TESS_DEFAULT_FIELDS.has(f)) extOpen ? col.show() : col.hide();
+      });
+      els.extendedToggle.textContent = extOpen ? 'Hide extended catalog' : 'Show extended catalog';
+      els.extendedToggle.classList.toggle('open', extOpen);
+    };
+  } else {
+    els.extendedToggle.style.display = 'none';
+  }
 }
 
 function renderPlaceholder() {
@@ -751,6 +781,7 @@ function main() {
   els.downloads   = document.getElementById('downloads');
   els.oodPanel    = document.getElementById('ood-panel');
   els.oodToggle   = document.getElementById('ood-toggle');
+  els.extendedToggle = document.getElementById('extended-toggle');
   els.oodHint     = document.getElementById('ood-hint');
   els.contentRow  = document.getElementById('content-row');
   els.tableWrap   = document.getElementById('table-wrap');
