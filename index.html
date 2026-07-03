@@ -145,6 +145,18 @@ const COLUMNS_KOI = [
   { title: 'Holczer+2016', field: 'holczer',          sorter: 'boolean', hozAlign: 'center', width: 110, formatter: fmtPass },
 ];
 
+const COLUMNS_TESS_TTVS = [
+  { title: 'TIC',          field: 'TIC',              sorter: 'number',  hozAlign: 'right',  width: 110, frozen: true, formatter: fmtInt },
+  { title: 'TOI',          field: 'TOI',              sorter: 'number',  hozAlign: 'right',  width: 90,  formatter: fmtNum(2) },
+  { title: 'Period [d]',   field: 'period',           sorter: 'number',  hozAlign: 'right',  width: 120, formatter: fmtSig },
+  { title: 'τ [d]',        field: 'tau',              sorter: 'number',  hozAlign: 'right',  width: 80,  formatter: fmtSig },
+  { title: 'SNR',          field: 'snr',              sorter: 'number',  hozAlign: 'right',  width: 95,  formatter: fmtSig },
+  { title: 'TTV SNR',      field: 'ttv_snr',          sorter: 'number',  hozAlign: 'right',  width: 100, formatter: fmtSig },
+  { title: 'scatter SNR',  field: 'ttv_scatter',      sorter: 'number',  hozAlign: 'right',  width: 115, formatter: fmtSig },
+  { title: 'Nₜᵣ',      field: 'n_transits',       sorter: 'number',  hozAlign: 'right',  width: 70,  formatter: fmtInt },
+  { title: 'Nabbie+2026',  field: 'nabbie',           sorter: 'boolean', hozAlign: 'center', width: 110, formatter: fmtPass },
+];
+
 const PAGES = [
   { key: 'overview',  title: 'Overview',                 md: 'overview.md',       type: 'placeholder' },
   { key: 'tess',      title: 'TESS Exoplanet Catalog',   md: 'tess.md',           type: 'table', csv: 'tois.csv',
@@ -177,6 +189,13 @@ const PAGES = [
     downloads: [{ label: 'Download TTVs', file: 'kepler_ttvs.zip' }, { label: 'Download Table', file: 'kepler_ttvs_overview.csv' }],
     plot:  d => `plots_kepler_ttvs/${d.KOI}.png`,
     ptitle:d => `KOI ${d.KOI} · P=${(+d.period).toFixed(4)} d · SNR=${(+d.snr).toFixed(1)}`,
+    nst: false },
+  { key: 'tessttvs', title: 'TESS TTVs',                md: 'tess_ttvs.md',      type: 'table', csv: 'tess_ttvs_overview.csv',
+    columns: COLUMNS_TESS_TTVS, initialSort: [{ column: 'ttv_snr', dir: 'desc' }],
+    filterFields: ['TIC', 'TOI'], filterPlaceholder: 'Filter TIC or TOI…',
+    downloads: [{ label: 'Download Table', file: 'tess_ttvs_overview.csv' }],
+    plot:  d => `plots_tess_ttvs/${d.TOI}.jpg`,
+    ptitle:d => `TIC ${d.TIC} · TOI ${d.TOI} · P=${(+d.period).toFixed(4)} d · SNR=${(+d.snr).toFixed(1)} · TTV SNR=${(+d.ttv_snr).toFixed(1)}`,
     nst: false },
 ];
 
