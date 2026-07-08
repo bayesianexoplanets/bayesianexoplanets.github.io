@@ -194,7 +194,7 @@ const PAGES = [
     filterFields: ['TIC', 'TOI'], filterPlaceholder: 'Filter TIC or TOI…',
     downloads: [{ label: 'Download Table', file: 'tess_ttvs_overview.csv' }],
     plot:  d => `plots_tess_ttvs/${d.TOI}.jpg`,
-    ptitle:d => `TIC ${d.TIC} · TOI ${d.TOI} · P=${(+d.period).toFixed(4)} d · SNR=${(+d.snr).toFixed(1)} · TTV SNR=${(+d.ttv_snr).toFixed(1)}`,
+    ptitle:d => `TIC ${d.TIC} · TOI ${d.TOI} · P=${(+d.period).toFixed(4)} d · SNR=${(+d.snr).toFixed(1)} · TTV SNR=${(+d.ttv_snr).toFixed(2)}`,
     nst: false },
 ];
 
