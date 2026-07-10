@@ -2,7 +2,7 @@ Transit timing variations (TTVs) for TESS Objects of Interest, measured with thi
 
 The entries are the best candidates from a visual inspection of the ~250 highest-ranked systems of the full ~5000-star catalog: 25 systems with a clear, coherent O−C signal, plus the systems flagged as significant TTV detections by [Nabbie et al. (2026)](https://arxiv.org/abs/2606.17218) that our data can resolve (ticked in the last column; for those we show the planet with the strongest signal in our data). Known TTV systems recovered independently by this analysis include TOI-1136, TOI-2202 and TOI-282 (HD 28109).
 
-Click a row to see the folded and per-epoch stacked transit (left) next to the O−C measurements with the best-fit two-planet model from the posterior as the dashed line (right).
+Click a row to see the folded and per-epoch stacked transit (left) next to the O−C measurements with the best-fit two-planet model as the dashed line (top right), and the inferred mass and period of the perturbing planet (bottom right). There the filled contours are the neural posterior; where an independent N-body MCMC chain was run for the system, its posterior is overlaid as unfilled contours. Contours enclose 39% and 87% of the probability.
 
 | Column | Description |
 |---|---|
