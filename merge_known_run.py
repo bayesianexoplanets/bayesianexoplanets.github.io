@@ -38,7 +38,7 @@ def npz_by_planet(folder):
     return table
 
 
-def _to_jpg(src, dst, max_w=900, quality=88):
+def _to_jpg(src, dst, max_w=800, quality=80):   # 62 KB per figure; 900/88 gave 102 KB and a 1.01 GB site (Pages limit 1 GB)
     from PIL import Image
     os.makedirs(os.path.dirname(dst), exist_ok=True)
     image = Image.open(src).convert("RGB")
