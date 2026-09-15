@@ -5,7 +5,12 @@ flags passed, harmonics of known periods and within-star duplicates removed, vis
 Values come from the candidate's own batch0 row of the rerun (Period, Phase, Tau, SNR, errors, radius
 posterior, number of transits, diagnostics), the star's stellar parameters from TESS/tois_corrected.csv,
 Epoch = t_start + Phase and Duration = 2 Tau as in merge_known_run.py, and the pass/fail flags from the
-rules of recompute_failed_tests.py applied to the candidate's own diagnostics. `Interesting` marks the
+rules of recompute_failed_tests.py applied to the candidate's own diagnostics, plus four further
+tests (user decision 2026-09-15): `known_eb` (the star has an ExoFOP row with TESS disposition EB,
+or a false-positive row whose comment names an eclipsing binary, or is in KNOWN_EB_HOSTS),
+`known_transit` (a single-transit TOI of the star without a period whose ExoFOP epoch falls in one
+of the candidate's transit windows), `harmonic` (the period is an integer multiple 2..8 or fraction
+of a stronger candidate of the same star, within 2 % in log) and `review` (judged not convincing). `Interesting` marks the
 reviewers' `convincing` verdict; `verdict`, `confidence`, `note` carry the review. The null columns are
 left empty for merge_hier_pvalues.py and proposed_toi for assign_proposed_tois.py. plots_new/{TIC}/{idx}.jpg
 is the downscaled `{idx}_0.png` of the rerun (the FGP-subtracted diagnostic figure). Dry run by default.
@@ -24,6 +29,11 @@ RUN = "/pscratch/sd/j/julius/exoprob/Rerun_20260910/"
 sys.path.insert(0, HERE)
 from merge_known_run import _to_jpg
 from recompute_failed_tests import SPURIOUS_MAX, SNRD_MIN, SNR_OVERRIDE, NTRANSITS_MIN, HARMONICS_SNRD
+
+KNOWN_EB_HOSTS = {260128333: "TOI-1338: eclipsing binary host of a circumbinary planet (Kostov et al. 2020)"}
+EB_COMMENT = r"\bEB\b|eclipsing binary|\bSB2\b"
+HARMONIC_RATIOS = np.array([2, 3, 4, 5, 6, 7, 8, 1/2, 1/3, 1/4, 1/5, 1/6, 1/7, 1/8])
+LOG_TOL = 0.02
 
 COLUMNS = ["TIC", "TOI", "Period", "Phase", "Tau", "SNR", "Radius_planet", "Mass", "Radius", "logg", "FEH", "Teff",
            "Number of Valid Transits", "Has Visible TTVs", "log10(p value)", "μ(SNR | null)", "σ(SNR | null)", "sm_sf_grid",
@@ -47,20 +57,62 @@ def failed_tests(cand, sharp):
     return failed
 
 
+def star_flags(exo):
+    """TIC -> (is an EB host, [epochs in BTJD of its single-transit TOIs without a period])."""
+    period_col = [c for c in exo.columns if c.startswith("Period")][0]
+    epoch_col = [c for c in exo.columns if c.startswith("Epoch")][0]
+    comments = exo["Comments"].fillna("")
+    eb = (exo["TESS Disposition"] == "EB") | ((exo["TFOPWG Disposition"] == "FP") & comments.str.contains(EB_COMMENT, case=False, regex=True))
+    flags = {}
+    for (tic, is_eb, period, epoch) in zip(exo["TIC ID"], eb, exo[period_col], exo[epoch_col]):
+        try:
+            tic = int(tic)
+        except (ValueError, TypeError):
+            continue
+        host_eb, epochs = flags.get(tic, (False, []))
+        if not (np.isfinite(period) and period > 0) and np.isfinite(epoch):
+            epochs = epochs + [float(epoch) - 2457000.]
+        flags[tic] = (host_eb or bool(is_eb), epochs)
+    for tic in KNOWN_EB_HOSTS:
+        host_eb, epochs = flags.get(tic, (False, []))
+        flags[tic] = (True, epochs)
+    return flags
+
+
+def is_harmonic(period, snr, star_candidates):
+    """True when a stronger candidate of the star sits at an integer multiple or fraction of the period."""
+    stronger = star_candidates[star_candidates["SNR"] > snr]
+    if len(stronger) == 0:
+        return False
+    ratio = period / stronger["period"].to_numpy()[:, None] / HARMONIC_RATIOS[None, :]
+    return bool((np.abs(np.log(ratio)) < LOG_TOL).any())
+
+
 def build(apply):
     selected = pd.read_csv(HOME + "results/rerun_hier_top83_verdicts.csv", sep="\t")
     catalog = pd.read_csv(HOME + "TESS/tois_corrected.csv", sep="\t")
     stellar = catalog.drop_duplicates("TIC").set_index("TIC")
     n_known = catalog.groupby("TIC").size()
     n_new = selected.groupby("tic").size()
+    flags = star_flags(pd.read_csv(HOME + "TESS/tois.csv"))
 
     rows = []
     for _, s in selected.sort_values(["tic", "index"]).iterrows():
         tic, idx = int(s["tic"]), int(s["index"])
-        cand = pd.read_csv(RUN + f"candidates/batch0/{tic}.csv", sep="\t")
-        cand = cand[cand["event_id"] == idx].iloc[0]
+        star_candidates = pd.read_csv(RUN + f"candidates/batch0/{tic}.csv", sep="\t")
+        cand = star_candidates[star_candidates["event_id"] == idx].iloc[0]
         star = pd.read_csv(RUN + f"stars/{tic}.csv", sep="\t").iloc[0]
         fails = failed_tests(cand, bool(star["has_sharp_peak"]))
+        host_eb, single_epochs = flags.get(tic, (False, []))
+        epoch, period, duration = float(star["t_start"]) + float(cand["phase"]), float(cand["period"]), 2. * float(cand["tau"])
+        if host_eb:
+            fails.append("known_eb")
+        if any(abs((e - epoch + period / 2.) % period - period / 2.) < duration for e in single_epochs):
+            fails.append("known_transit")
+        if is_harmonic(period, float(cand["SNR"]), star_candidates):
+            fails.append("harmonic")
+        if s["verdict"] == "not_convincing":
+            fails.append("review")
         st = stellar.loc[tic] if tic in stellar.index else None
         rows.append({
             "TIC": tic, "TOI": np.nan, "Period": float(cand["period"]), "Phase": float(cand["phase"]), "Tau": float(cand["tau"]),

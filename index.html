@@ -43,9 +43,9 @@
   #toolbar { padding: 8px 20px; background: #f3f4f6; border-bottom: 1px solid var(--border); display: flex; gap: 12px; align-items: center; font-size: 0.85rem; }
   #toolbar input { padding: 4px 10px; font-size: 0.85rem; width: 280px; border: 1px solid var(--border); border-radius: 4px; }
   #toolbar .hint { color: var(--muted); }
-  #download-btn, #ood-toggle, #extended-toggle { padding: 4px 12px; font-size: 0.82rem; border: 1px solid var(--border); border-radius: 4px; background: #fff; cursor: pointer; color: #374151; white-space: nowrap; }
-  #download-btn:hover, #ood-toggle:hover, #extended-toggle:hover { background: #e5e7eb; }
-  #ood-toggle.open, #extended-toggle.open { background: #dbeafe; border-color: #93c5fd; color: #1d4ed8; }
+  #download-btn, #ood-toggle, #extended-toggle, #passing-toggle { padding: 4px 12px; font-size: 0.82rem; border: 1px solid var(--border); border-radius: 4px; background: #fff; cursor: pointer; color: #374151; white-space: nowrap; }
+  #download-btn:hover, #ood-toggle:hover, #extended-toggle:hover, #passing-toggle:hover { background: #e5e7eb; }
+  #ood-toggle.open, #extended-toggle.open, #passing-toggle.open { background: #dbeafe; border-color: #93c5fd; color: #1d4ed8; }
   #downloads { display: flex; gap: 8px; }
   .dl-btn { display: inline-flex; align-items: center; padding: 3px 10px; font-size: 0.82rem; border: 1px solid var(--border); border-radius: 4px; background: #fff; color: #374151; text-decoration: none; white-space: nowrap; }
   .dl-btn:hover { background: #f3f4f6; color: #111; border-color: #9ca3af; }
@@ -93,6 +93,7 @@
     <button id="download-btn" type="button" style="display:none">&#8595; CSV</button>
     <button id="ood-toggle" type="button" style="display:none">Interactive plot</button>
     <button id="extended-toggle" type="button" style="display:none">Show extended catalog</button>
+    <button id="passing-toggle" type="button" style="display:none">Show all found candidates</button>
     <div id="downloads"></div>
     <span class="hint">Click any row to see its diagnostic plots &middot; Click column headers to sort</span>
   </div>
@@ -168,6 +169,7 @@ const PAGES = [
     downloadFilename: 'tess_new_candidates.csv',
     hasOodChart: true,
     collapsible: true,
+    passingFilter: true,
     colOverrides: { TOI: { visible: false } },
     extraColumns: [
       { title: 'Proposed TOI', field: 'proposed_toi', sorter: 'number', hozAlign: 'right', width: 110, formatter: fmtTOI, _after: 'TIC' },
@@ -762,6 +764,38 @@ async function renderTablePage(page) {
   } else {
     els.extendedToggle.style.display = 'none';
   }
+
+  // passing-only view: pages with passingFilter start on the rows that pass every vetting test;
+  // the toggle reveals all found candidates (the failed tests are listed in the extended columns)
+  passingOnly = !!page.passingFilter;
+  if (page.passingFilter) {
+    els.passingToggle.style.display = '';
+    els.passingToggle.textContent = 'Show all found candidates';
+    els.passingToggle.classList.remove('open');
+    els.passingToggle.onclick = () => {
+      passingOnly = !passingOnly;
+      els.passingToggle.textContent = passingOnly ? 'Show all found candidates' : 'Show passing candidates only';
+      els.passingToggle.classList.toggle('open', !passingOnly);
+      applyFilters();
+    };
+  } else {
+    els.passingToggle.style.display = 'none';
+  }
+  applyFilters();
+}
+
+// table filters: the passing-only view (AND) the free-text TIC/TOI filter (OR over its fields)
+let passingOnly = false;
+function applyFilters() {
+  if (!table) return;
+  const filters = [];
+  if (passingOnly) filters.push({ field: 'passed_all_tests', type: '=', value: true });
+  const v = els.filter.value.trim();
+  if (v) {
+    const fields = currentPage?.filterFields || ['TIC', 'TOI'];
+    filters.push(fields.map(f => ({ field: f, type: 'like', value: v })));
+  }
+  if (filters.length) table.setFilter(filters); else table.clearFilter(true);
 }
 
 function renderPlaceholder() {
@@ -796,6 +830,7 @@ function main() {
   els.toolbar     = document.getElementById('toolbar');
   els.filter      = document.getElementById('filter');
   els.downloadBtn = document.getElementById('download-btn');
+  els.passingToggle = document.getElementById('passing-toggle');
   els.downloads   = document.getElementById('downloads');
   els.oodPanel    = document.getElementById('ood-panel');
   els.oodToggle   = document.getElementById('ood-toggle');
@@ -813,13 +848,7 @@ function main() {
     a.textContent = p.title; a.dataset.key = p.key; a.href = '#' + p.key;
     els.nav.appendChild(a);
   });
-  els.filter.addEventListener('input', () => {
-    if (!table) return;
-    const v = els.filter.value.trim();
-    if (!v) { table.clearFilter(true); return; }
-    const fields = currentPage?.filterFields || ['TIC', 'TOI'];
-    table.setFilter([fields.map(f => ({ field: f, type: 'like', value: v }))]);
-  });
+  els.filter.addEventListener('input', applyFilters);
   els.oodToggle.addEventListener('click', async () => {
     oodOpen = !oodOpen;
     els.oodPanel.style.display = oodOpen ? 'flex' : 'none';

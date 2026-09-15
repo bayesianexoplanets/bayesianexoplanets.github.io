@@ -250,10 +250,10 @@ marks candidates that fail at least one vetting test.
 
 ![TESS candidates: insolation versus Teff diagram with HZ overlays](habitable_zone.png)
 
-None of the 83 new candidates ($p < 10^{-4}$; 75 of them have the stellar
-parameters needed for the diagram) falls inside the habitable zone: the list is
-dominated by short periods (median 3.9 d), where the period-local null test is
-most sensitive. For comparison, 19 of the 5 187 known TOIs lie in the optimistic
+None of the 83 found candidates ($p < 10^{-4}$; 42 pass every vetting test, 75
+have the stellar parameters needed for the diagram) falls inside the habitable
+zone: the list is dominated by short periods (median 3.9 d), where the
+period-local null test is most sensitive. For comparison, 19 of the 5 187 known TOIs lie in the optimistic
 zone (18 pass all vetting tests) and 12 in the conservative zone (all 12 pass).
 
 ### Kepler candidates (Robnik et al. 2026)

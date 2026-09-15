@@ -3,10 +3,15 @@ Interest (TOI) catalog: every blind-search candidate of the 2026 rerun with a
 period-local null-simulation p-value below $10^{-4}$ (the null is the star's own
 noise in the candidate's period bin, see the Overview), passing the two automatic
 vetting flags, not a harmonic of a known planet of the same star, and not a period
-duplicate of a stronger candidate. Each candidate was inspected visually; the
-`Interesting` flag marks the ones judged convincing, and the review verdict and note
-are included in the downloadable table. Candidates that fail a vetting test are kept
-and marked as such.
+duplicate of a stronger candidate. By default the table shows only the candidates that pass every vetting test: the
+pipeline's own tests (spurious transits, per-transit SNR consistency, at least three
+transits, no instrumental frequency line), no known eclipsing binary on the star, no
+match to a single-transit TOI already listed for the star, no harmonic of a stronger
+signal of the same star, and a visual review that did not reject the candidate. The
+**Show all found candidates** button reveals the rest, with the failed tests listed in
+the extended columns. Each candidate was inspected visually; the `Interesting` flag
+marks the ones judged convincing, and the review verdict and note are included in the
+downloadable table.
 
 Use the **Interactive plot** button in the toolbar to explore the population in any
 pair of catalog quantities. Convincing candidates are drawn as orange stars, and
