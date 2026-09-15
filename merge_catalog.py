@@ -17,14 +17,15 @@ import os
 import sys
 import glob
 
-os.chdir("/global/u2/j/julius")
+os.chdir("/global/u2/j/julius/exoplanets")
 import numpy as np
 import pandas as pd
-sys.path.insert(0, "/global/u2/j/julius/TESS corrected")
+sys.path.insert(0, "/global/u2/j/julius/exoplanets/TESS corrected"); sys.path.insert(0, "/global/u2/j/julius/exoplanets")
 import sm_pvalue
 from scipy.stats import norm
+from TESS.load_tess import load_stellar_data
 
-HERE = "/global/u2/j/julius/TESS corrected"
+HERE = "/global/u2/j/julius/exoplanets/TESS corrected"
 TOIS = os.path.join(HERE, "tois.csv")
 RUN = "/pscratch/sd/j/julius/exoprob/CatalogRun"
 CAND = RUN + "/known_candidates"
@@ -47,7 +48,7 @@ def sharp(tic, _c={}):
 
 def t_start(tic, _c={}):
     if tic not in _c:
-        _c[tic] = float(np.load(f"{BULK}/StellarData_{tic}.npy")[0])
+        _c[tic] = float(load_stellar_data(tic, data_dir=BULK)[0])
     return _c[tic]
 
 

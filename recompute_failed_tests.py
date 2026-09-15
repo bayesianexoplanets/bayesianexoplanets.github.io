@@ -19,7 +19,7 @@ import os
 import numpy as np
 import pandas as pd
 
-HERE = "/global/u2/j/julius/TESS corrected"
+HERE = "/global/u2/j/julius/exoplanets/TESS corrected"
 RECOVERY = "/pscratch/sd/j/julius/exoprob/RecoveryRun/candidates/batch0"
 STARS = "/pscratch/sd/j/julius/exoprob/FullRun/stars"
 

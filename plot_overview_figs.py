@@ -21,7 +21,7 @@ import fit_singh_maddala as sm
 
 rc("mathtext", fontset="cm")
 plt.rcParams["font.family"] = "serif"; plt.rcParams["font.serif"] = ["DejaVu Serif"]; plt.rcParams["font.size"] = 11
-HERE = "/global/u2/j/julius/TESS corrected"
+HERE = "/global/u2/j/julius/exoplanets/TESS corrected"
 C, K, L = 8.309, 0.549, 7.386          # whole-sample Singh-Maddala params (NST Analysis.ipynb)
 SM = stats.burr12(c=C, d=K, scale=L)
 

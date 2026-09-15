@@ -151,7 +151,8 @@ kw = dict(
     fmt=r"{x:.0f} $R_\oplus$", markeredgecolor="k",
     func=lambda s: np.sqrt(s / 120),
 )
-axes[1].legend(*scp_right.legend_elements(**kw), loc=[0.72, 0.78], fontsize=18)
+if len(scp_right.get_offsets()):                                       # no new candidate inside the plotted window
+    axes[1].legend(*scp_right.legend_elements(**kw), loc=[0.72, 0.78], fontsize=18)
 
 cbh = fig.colorbar(scp_right, ax=axes, pad=0.02, fraction=0.04, extend="min")
 cbh.ax.set_ylabel(r"$\log_{10}(p\mathrm{-value})$", fontsize=24)

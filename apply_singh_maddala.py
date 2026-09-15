@@ -15,10 +15,10 @@ Dry-run by default; pass --apply to write.
 import os, sys, shutil
 import numpy as np
 import pandas as pd
-sys.path.insert(0, "/global/u2/j/julius/TESS corrected")
+sys.path.insert(0, "/global/u2/j/julius/exoplanets/TESS corrected")
 import sm_pvalue
 
-HERE = "/global/u2/j/julius/TESS corrected"
+HERE = "/global/u2/j/julius/exoplanets/TESS corrected"
 FIT = "/pscratch/sd/j/julius/exoprob/pvalue"
 
 grid = pd.read_csv(f"{FIT}/sm_grid.csv").set_index("TIC")["sf_grid"]

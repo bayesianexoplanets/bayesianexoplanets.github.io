@@ -7,13 +7,15 @@ Reference (period, phase): ExoFOP if available, else the current catalog value.
   phase_ref = mod(Epoch(BJD) - (t_start+2457000), P_ref)   [ExoFOP], else catalog Phase.
 Match: |P_cand/P_ref - 1| < PTOL  AND  circular |phase_cand - phase_ref| mod P_ref < phase_tol.
 """
-import os
+import os, sys
+sys.path.insert(0, "/global/u2/j/julius/exoplanets")
 import numpy as np
 import pandas as pd
+from TESS.load_tess import load_stellar_data
 
-HERE = "/global/u2/j/julius/TESS corrected"
+HERE = "/global/u2/j/julius/exoplanets/TESS corrected"
 TOIS = os.path.join(HERE, "tois.csv")
-EXO = "/global/u2/j/julius/TESS/tois.csv"
+EXO = "/global/u2/j/julius/exoplanets/TESS/tois.csv"
 RR = "/pscratch/sd/j/julius/exoprob/RecoveryRun/candidates/batch0"
 BULK = "/pscratch/sd/j/julius/Bulk Download/Data"
 PTOL = 0.01            # period within 1% (ratio ~ 1, rejects harmonics)
@@ -26,7 +28,7 @@ _ts = {}
 def t_start(tic):
     if tic not in _ts:
         try:
-            _ts[tic] = float(np.load(f"{BULK}/StellarData_{tic}.npy")[0])
+            _ts[tic] = float(load_stellar_data(tic, data_dir=BULK)[0])
         except Exception:
             _ts[tic] = np.nan
     return _ts[tic]

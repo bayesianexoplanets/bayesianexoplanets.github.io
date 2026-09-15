@@ -9,7 +9,7 @@ passed_all_tests is True, 'see_pipeline' otherwise.
 import os
 import pandas as pd
 
-HERE = "/global/u2/j/julius/TESS corrected"
+HERE = "/global/u2/j/julius/exoplanets/TESS corrected"
 FULLRUN = "/pscratch/sd/j/julius/exoprob/FullRun/candidates"
 
 TESTS = [

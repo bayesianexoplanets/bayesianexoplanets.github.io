@@ -11,11 +11,11 @@ full methodology is described in
 ## Why is this hard?
 
 An Earth-sized planet in a habitable-zone orbit blocks only about 100 ppm of its
-star's light — 0.01 % — while the star itself typically varies by several times
+star's light, that is 0.01 %, while the star itself typically varies by several times
 that amount. Each transit lasts a few hours out of an orbital period of hundreds
 of days, so even a multi-year baseline contains just a handful of events. And
-almost any instrumental artefact — a thermal transient, a pixel sensitivity drop,
-a cosmic-ray hit — can mimic a transit dip. A useful pipeline must therefore do
+almost any instrumental artefact (a thermal transient, a pixel sensitivity drop,
+a cosmic-ray hit) can mimic a transit dip. A useful pipeline must therefore do
 two things at once: detect real signals all the way down at the noise floor, and
 reject the flood of false alarms it inevitably encounters there.
 
@@ -29,13 +29,13 @@ $$
 F(t) = F_\mathrm{GP}(t) + \epsilon(t) + \Delta(t),
 $$
 
-where $F_\mathrm{GP}$ is the stellar variability — a correlated Gaussian process —
+where $F_\mathrm{GP}$ is the stellar variability, a correlated Gaussian process,
 $\epsilon$ is uncorrelated noise whose variance tracks the local flux level, and
 $\Delta$ is the transit signal we are looking for.
 
 The key simplification happens in Fourier space: there the stellar variability is
 fully characterised by its power spectral density $P_k$. Once $P_k$ is known, the
-data can be *whitened* — divided through by the noise spectrum — after which the
+data can be *whitened*, divided through by the noise spectrum, after which the
 transit appears as a fixed template in approximately white noise, the textbook
 setting for a matched filter.
 
@@ -51,17 +51,17 @@ perturbed by the presence of a planet.
 
 The pipeline runs in three sequential stages:
 
-![Pipeline stages: preprocessing → detection → vetting](pipeline_overview.png)
+![Pipeline stages: preprocessing, detection, vetting](pipeline_overview.png)
 
 ---
 
-## Stage 1 — Preprocessing
+## Stage 1: Preprocessing
 
 Real light curves violate the Gaussian model in several distinct ways, and each
 violation gets its own treatment before the search begins.
 
-**Outlier Gaussianization.** Isolated outliers — saturation spikes, bright
-pixels — would dominate a matched filter if left in place. We apply a monotonic
+**Outlier Gaussianization.** Isolated outliers (saturation spikes, bright
+pixels) would dominate a matched filter if left in place. We apply a monotonic
 transformation that maps the empirical flux distribution onto a standard
 Gaussian while leaving extended, correlated features (such as a transit dip)
 intact. Estimating the power spectrum and applying the transformation are
@@ -87,7 +87,7 @@ the matched-filter response at the affected frequencies.
 
 ---
 
-## Stage 2 — Detection
+## Stage 2: Detection
 
 For a transit of period $P$, epoch $\phi$, and duration $\tau$, the
 matched-filter signal-to-noise ratio is
@@ -98,7 +98,7 @@ $$
 
 with $\delta_k$ the whitened flux at cadence $k$ and $w_k$ the matched-filter
 weight, proportional to the transit template. The statistic we actually optimise
-is the Bayes factor — the evidence ratio between the planet and no-planet
+is the Bayes factor, the evidence ratio between the planet and no-planet
 hypotheses, integrated over transit depth. For Gaussian noise its logarithm is
 approximately $\frac{1}{2}\mathrm{SNR}^2$ minus a depth-prior penalty, so the
 two views are nearly equivalent; the Bayes factor handles the look-elsewhere
@@ -106,11 +106,11 @@ correction more gracefully.
 
 The Bayes factor is evaluated on a dense grid:
 
-- **Period** — 0.2 to 40 days, sampled at ~150 000 trial periods, spaced so the
+- **Period**: 0.2 to 40 days, sampled at ~150 000 trial periods, spaced so the
   phase drift accumulated over the full baseline never exceeds half a cadence.
-- **Phase** — for each trial period, the optimal phase is found analytically in
+- **Phase**: for each trial period, the optimal phase is found analytically in
   $O(N \log N)$ time via a Fourier-space inner product.
-- **Duration** — Kepler's third law ties $\tau$ to the stellar density
+- **Duration**: Kepler's third law ties $\tau$ to the stellar density
   $\rho_\star$; only durations consistent with a physical orbit (within a ±15 %
   prior) are searched.
 
@@ -120,7 +120,7 @@ signal, re-search, and repeat until nothing exceeds the threshold.
 
 ---
 
-## Stage 3 — Vetting
+## Stage 3: Vetting
 
 A search that reaches the noise floor necessarily turns up instrumental false
 alarms. Three complementary tests reject them.
@@ -138,7 +138,7 @@ transits within ~0.3 days of a gap edge are flagged as unreliable, with the same
 **Per-transit SNR consistency.** A genuine planet spreads its significance
 across transits in proportion to the data quality at each epoch. A χ² uniformity
 test catches candidates whose signal is carried by one or two anomalously deep
-events — the signature of an unmodeled systematic. Candidates with p-value
+events, the signature of an unmodeled systematic. Candidates with p-value
 < 0.01 are rejected.
 
 ---
@@ -147,16 +147,21 @@ events — the signature of an unmodeled systematic. Candidates with p-value
 
 The matched-filter SNR of pure noise depends on each star's variability in a
 complicated way, so no universal SNR threshold is reliable. Instead we measure
-each star's own noise floor empirically: ten independent searches are run per
-star with slightly perturbed search grids (different random seeds), so that the
-pipeline can only find noise peaks, never a coherent planet. The ten resulting
-max-SNR values form the star's null distribution.
+each star's own noise floor empirically with null searches: the pipeline is run
+again with perturbed search grids (different random seeds), so that it can only
+find noise peaks, never a coherent planet. Because the noise floor also depends
+on the period range (short periods offer far more trial phases than long ones),
+the null searches are **period-local**: for each star we run ten of them in the
+period bin of every catalogued planet and in the bins of its three strongest
+blind candidates, each restricted to that bin (about 9 % wide in period) and to
+periods with at least three transits in the baseline. The ten resulting max-SNR
+values form the null distribution of that (star, period bin).
 
-These null SNRs are **not Gaussian** — they have a heavy right tail, so a normal
+These null SNRs are **not Gaussian**. They have a heavy right tail, so a normal
 model badly under-predicts how often noise alone reaches a high SNR and would
-wildly over-state significance. Across ~5000 stars the null is instead very well
-described by a **Singh-Maddala** (Burr Type XII) distribution, whose survival
-function (the probability that noise exceeds a given SNR) is
+wildly over-state significance. The null is instead very well described by a
+**Singh-Maddala** (Burr Type XII) distribution, whose survival function (the
+probability that noise exceeds a given SNR) is
 
 $$
 \mathrm{SF}(x \mid c,k,\lambda) = \big[\,1 + (x/\lambda)^{c}\,\big]^{-k}, \qquad c,k,\lambda > 0 .
@@ -167,38 +172,47 @@ $$
 The survival-function panel (right) makes the point: in the tail the Gaussian
 plunges far below the data, while the Singh-Maddala tracks it.
 
-**Per-star Bayesian fit.** With only ten samples per star a free three-parameter
-fit is noisy, so we fit $(c,k,\lambda)$ for each star by Hamiltonian Monte Carlo
-with informative log-normal priors learned from the ~1000 stars for which we ran
-100 NSTs:
-
-$$
-\frac{c}{27.9} \sim \mathrm{LogNormal}(0,0.47), \quad
-\frac{k}{0.84} \sim \mathrm{LogNormal}(0,0.83), \quad
-\frac{\lambda - 4.86}{1.82} \sim \mathrm{LogNormal}(0,0.91).
-$$
+**Hierarchical Bayesian fit.** With only ten samples per null set a free
+three-parameter fit is noisy, so the parameters are not fitted in isolation.
+Every (star, period bin) null set has its own $(c,k,\lambda)$, drawn from a
+population whose mean, spread and correlations are themselves fitted jointly to
+all 21 000 null sets of the catalog, separately in six period ranges (below 1 d,
+1 to 3 d, 3 to 10 d, 10 to 30 d, 30 to 100 d, above 100 d). The joint posterior
+is sampled by Monte Carlo (two independent chains per period range; all
+population parameters agree between chains to better than $\hat R = 1.05$, and
+the resulting p-values to better than 0.05 dex). Null sets with too few usable
+samples receive the population-predictive distribution of their period range.
 
 A candidate's significance is then the **posterior-mean survival function** at its
-SNR, marginalised over the fit's parameter uncertainty,
+SNR, marginalised over the parameter uncertainty of its own null set,
 
 $$
 p = \mathbb{E}_{\text{posterior}}\!\big[\,\mathrm{SF}(\mathrm{SNR}_\mathrm{cand} \mid c,k,\lambda)\,\big] .
 $$
 
-Marginalising — rather than plugging in a single best-fit $(c,k,\lambda)$ — is
+Marginalising, rather than plugging in a single best-fit $(c,k,\lambda)$, is
 essential: it fattens the tail to reflect that ten samples cannot fully pin down
 the distribution, yielding a properly conservative p-value. (Click any row in the
 catalog tables to see this survival function, the ten NST samples, and where the
 candidate falls.)
 
-**Does the prior help, and are ten NSTs enough?** On synthetic data we compare
+**Are ten NSTs enough, and does the prior help?** On synthetic data we compare
 three estimators of the true p-value: the Gaussian, an unregularised
-(maximum-likelihood) Singh-Maddala, and the informed-prior Bayesian
-Singh-Maddala. The Gaussian is biased at every sample size; the unregularised fit
-is unbiased but noisy for few samples; the informed-prior fit is both unbiased and
-stable from a handful of NSTs onward, so the ten used in production suffice:
+(maximum-likelihood) Singh-Maddala, and a Singh-Maddala with an informed prior.
+The Gaussian is biased at every sample size; the unregularised fit is unbiased
+but noisy for few samples; the informed-prior fit is both unbiased and stable
+from a handful of NSTs onward, so the ten used in production suffice:
 
 ![p-value estimators vs number of NST samples: Gaussian, no-prior and informed-prior Singh-Maddala](overview_nst_pvalue.png)
+
+**What the p-value means.** It is the probability that noise in the candidate's
+own period bin produces a peak at least as high as the candidate. The blind
+search, however, examined about a hundred such bins per star, so the chance of
+finding such a peak *somewhere* is correspondingly larger. The catalog does not
+apply this look-elsewhere correction across bins; the new-candidate list
+therefore uses the threshold $p < 10^{-4}$, the period-local equivalent of a
+1 % chance over a hundred bins, and every candidate above it was inspected by
+eye (see the TESS New Candidates page).
 
 **How significant are the candidates?** Comparing the $-\log_{10}(p)$
 distributions of known TOIs and our new candidates (larger means more
@@ -206,9 +220,9 @@ significant):
 
 ![p-value distribution of known TOIs vs new candidates](overview_pvalue_dist.png)
 
-The new candidates are systematically less significant than confirmed TOIs —
-expected for a population living near the detection limit — but they sit clearly
-above the per-star noise floor.
+The new candidates are systematically less significant than confirmed TOIs,
+as expected for a population living near the detection limit, but they sit
+clearly above the per-star noise floor.
 
 ---
 
@@ -234,19 +248,19 @@ green) and *recent Venus* to *early Mars* for the optimistic zone (light green).
 Markers are coloured by $\log_{10}(p)$, clipped to $[-3, 0]$; a dashed red ring
 marks candidates that fail at least one vetting test.
 
-![TESS candidates: insolation–Teff diagram with HZ overlays](habitable_zone.png)
+![TESS candidates: insolation versus Teff diagram with HZ overlays](habitable_zone.png)
 
-None of the 64 significant new candidates ($p \le 0.01$) falls inside the
-habitable zone; the few objects flagged by earlier, less conservative selections
-did not survive the tightened transit-count and Singh-Maddala significance cuts.
-For comparison, 20 of the 5 187 known TOIs lie in the optimistic zone (19 pass all
-vetting tests) and 12 in the conservative zone (all 12 pass).
+None of the 83 new candidates ($p < 10^{-4}$; 75 of them have the stellar
+parameters needed for the diagram) falls inside the habitable zone: the list is
+dominated by short periods (median 3.9 d), where the period-local null test is
+most sensitive. For comparison, 19 of the 5 187 known TOIs lie in the optimistic
+zone (18 pass all vetting tests) and 12 in the conservative zone (all 12 pass).
 
 ### Kepler candidates (Robnik et al. 2026)
 
 The same pipeline applied to the Kepler dataset:
 
-![Kepler candidates: insolation–Teff diagram with HZ overlays](kepler_hz.png)
+![Kepler candidates: insolation versus Teff diagram with HZ overlays](kepler_hz.png)
 
 Several long-period habitable-zone candidates recovered by the pipeline (red
 circles) are absent from previously published candidate lists (blue), having

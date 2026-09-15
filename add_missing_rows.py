@@ -2,12 +2,13 @@
 ephemerides) and reset the 2 period-mismatch rows to their ExoFOP periods, so a
 --fix-period re-vet picks them up. Re-vet + merge fills SNR/radius/pass/plots afterward."""
 import os, sys, shutil
-os.chdir("/global/u2/j/julius")
+os.chdir("/global/u2/j/julius/exoplanets"); sys.path.insert(0, "/global/u2/j/julius/exoplanets")
 import numpy as np, pandas as pd
+from TESS.load_tess import load_stellar_data
 
-HERE = "/global/u2/j/julius/TESS corrected"
+HERE = "/global/u2/j/julius/exoplanets/TESS corrected"
 TOIS = os.path.join(HERE, "tois.csv")
-EXO = "/global/u2/j/julius/TESS/tois.csv"
+EXO = "/global/u2/j/julius/exoplanets/TESS/tois.csv"
 BULK = "/pscratch/sd/j/julius/Bulk Download/Data"
 
 NEW = [(32090583, "218.01"), (31852980, "487.02"), (64837857, "6650.02"),
@@ -26,7 +27,7 @@ def exo(tic, toi):
 
 
 def ephem(tic, r):
-    t_start = float(np.load(f"{BULK}/StellarData_{tic}.npy")[0])
+    t_start = float(load_stellar_data(tic, data_dir=BULK)[0])
     P = float(r["Period (days)"])
     phase = float(np.mod(float(r["Epoch (BJD)"]) - (t_start + 2457000.0), P))
     tau = float(r["Duration (hours)"]) * 0.5 / 24.0

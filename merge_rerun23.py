@@ -13,12 +13,13 @@ Special cases:
 Dry-run by default; pass --apply to write tois.csv + plots.
 """
 import os, sys, glob
-os.chdir("/global/u2/j/julius"); sys.path.insert(0, "/global/u2/j/julius")
+os.chdir("/global/u2/j/julius/exoplanets"); sys.path.insert(0, "/global/u2/j/julius/exoplanets")
 import numpy as np, pandas as pd
-sys.path.insert(0, "/global/u2/j/julius/TESS corrected")
+sys.path.insert(0, "/global/u2/j/julius/exoplanets/TESS corrected")
 import sm_pvalue
+from TESS.load_tess import load_stellar_data
 
-HERE = "/global/u2/j/julius/TESS corrected"
+HERE = "/global/u2/j/julius/exoplanets/TESS corrected"
 TOIS = os.path.join(HERE, "tois.csv")
 KNOWN = "/pscratch/sd/j/julius/exoprob/Rerun23/known_candidates"
 PLOTS_SRC = "/pscratch/sd/j/julius/exoprob/Rerun23/plots"
@@ -62,7 +63,7 @@ def main(apply):
         rr = pd.read_csv(os.path.join(KNOWN, f"{tic}.csv"), sep="\t")
         if len(rr) == 0:
             print(f"  TIC {tic}: 0 vetted planets -- SKIP"); continue
-        sd = np.load(os.path.join(BULK, f"StellarData_{tic}.npy")); t_start = float(sd[0])
+        sd = load_stellar_data(tic, data_dir=BULK); t_start = float(sd[0])
         sharp = has_sharp_peak(tic)
         by_toi = {toi_key(r["TOI"]): r for _, r in rr.iterrows()}
 

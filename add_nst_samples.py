@@ -8,7 +8,7 @@ the column is left empty and the frontend falls back to Gaussian-only CDF.
 import os
 import pandas as pd
 
-HERE = "/global/u2/j/julius/TESS corrected"
+HERE = "/global/u2/j/julius/exoplanets/TESS corrected"
 FULLRUN = "/pscratch/sd/j/julius/exoprob/FullRun/candidates"
 NST_BATCHES = list(range(1, 11))
 

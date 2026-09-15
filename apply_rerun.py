@@ -28,16 +28,16 @@ import os
 import sys
 import glob
 
-os.chdir("/global/u2/j/julius")
-sys.path.insert(0, "/global/u2/j/julius")
+os.chdir("/global/u2/j/julius/exoplanets")
+sys.path.insert(0, "/global/u2/j/julius/exoplanets")
 import numpy as np
 import pandas as pd
-sys.path.insert(0, "/global/u2/j/julius/TESS corrected")
+sys.path.insert(0, "/global/u2/j/julius/exoplanets/TESS corrected")
 import sm_pvalue
 from scipy.stats import norm
-from TESS.load_tess import StarInfo_tess, read_known_planets_tess
+from TESS.load_tess import StarInfo_tess, read_known_planets_tess, load_stellar_data
 
-HERE = "/global/u2/j/julius/TESS corrected"
+HERE = "/global/u2/j/julius/exoplanets/TESS corrected"
 TOIS = os.path.join(HERE, "tois.csv")
 KNOWN = "/pscratch/sd/j/julius/exoprob/KnownRun/known_candidates"
 PLOTS_SRC = "/pscratch/sd/j/julius/exoprob/KnownRun/plots"
@@ -61,7 +61,7 @@ def has_sharp_peak(tic):
 def planet_order(tic):
     """(list of (plot_index, period, TOI) in read_known order, t_start) — the
     order Stage A names the plot files and the ExoFOP TOI each planet maps to."""
-    sd = np.load(os.path.join(BULK, f"StellarData_{tic}.npy"))
+    sd = load_stellar_data(tic, data_dir=BULK)
     sdc = sd.copy()
     if np.isnan(sdc[3]):
         sdc[3] = 1

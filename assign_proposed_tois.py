@@ -10,8 +10,8 @@ If a TIC ever has more than one new candidate they get consecutive indices (N+1,
 import os
 import pandas as pd
 
-HERE = "/global/u2/j/julius/TESS corrected"
-EXO = "/global/u2/j/julius/TESS/tois.csv"
+HERE = "/global/u2/j/julius/exoplanets/TESS corrected"
+EXO = "/global/u2/j/julius/exoplanets/TESS/tois.csv"
 
 # ExoFOP: TIC -> [TOI integer base, number of planets at that TIC]
 E = pd.read_csv(EXO)

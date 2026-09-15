@@ -15,11 +15,11 @@ Usage: python audit_exofop.py [reltol]   (default reltol=0.002 = 0.2%)
 import os
 import sys
 
-os.chdir("/global/u2/j/julius")
+os.chdir("/global/u2/j/julius/exoplanets")
 import numpy as np
 import pandas as pd
 
-HERE = "/global/u2/j/julius/TESS corrected"
+HERE = "/global/u2/j/julius/exoplanets/TESS corrected"
 WEB = os.path.join(HERE, "tois.csv")
 EXO = "TESS/tois.csv"
 RUN = "/pscratch/sd/j/julius/exoprob/CatalogRun/known_vetting_summary.csv"

@@ -12,7 +12,7 @@ import shutil
 import numpy as np
 import pandas as pd
 
-HERE = "/global/u2/j/julius/TESS corrected"
+HERE = "/global/u2/j/julius/exoplanets/TESS corrected"
 TOIS = os.path.join(HERE, "tois.csv")
 OUT = os.path.join(HERE, "tois_removed_low_transit.csv")
 

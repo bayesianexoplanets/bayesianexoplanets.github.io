@@ -12,13 +12,13 @@ import os
 import sys
 import glob
 
-os.chdir("/global/u2/j/julius")
-sys.path.insert(0, "/global/u2/j/julius")
+os.chdir("/global/u2/j/julius/exoplanets")
+sys.path.insert(0, "/global/u2/j/julius/exoplanets")
 import numpy as np
 import pandas as pd
-from TESS.load_tess import StarInfo_tess, read_known_planets_tess
+from TESS.load_tess import StarInfo_tess, read_known_planets_tess, load_stellar_data
 
-HERE = "/global/u2/j/julius/TESS corrected"
+HERE = "/global/u2/j/julius/exoplanets/TESS corrected"
 TOIS = os.path.join(HERE, "tois.csv")
 PLOTS_SRC = "/pscratch/sd/j/julius/exoprob/KnownRun/plots"
 PLOTS_DST = os.path.join(HERE, "plots")
@@ -29,7 +29,7 @@ DROP = {27491137: ["2076.01"]}
 
 
 def planet_order(tic):
-    sd = np.load(os.path.join(BULK, f"StellarData_{tic}.npy")).copy()
+    sd = load_stellar_data(tic, data_dir=BULK).copy()
     if np.isnan(sd[3]):
         sd[3] = 1
     if np.isnan(sd[-1]):

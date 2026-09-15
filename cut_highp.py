@@ -9,7 +9,7 @@ import sys
 import numpy as np
 import pandas as pd
 
-HERE = "/global/u2/j/julius/TESS corrected"
+HERE = "/global/u2/j/julius/exoplanets/TESS corrected"
 LOGP_CUT = -2.0          # p <= 0.01
 
 
