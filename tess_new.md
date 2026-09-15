@@ -6,12 +6,11 @@ vetting flags, not a harmonic of a known planet of the same star, and not a peri
 duplicate of a stronger candidate. By default the table shows only the candidates that pass every vetting test: the
 pipeline's own tests (spurious transits, per-transit SNR consistency, at least three
 transits, no instrumental frequency line), no known eclipsing binary on the star, no
-match to a single-transit TOI already listed for the star, no harmonic of a stronger
-signal of the same star, and a visual review that did not reject the candidate. The
+match to a single-transit TOI already listed for the star, and no harmonic of a
+stronger signal of the same star. The visual review is not a test: its verdict, confidence and
+note are columns, and the `Interesting` flag marks the candidates judged convincing. The
 **Show all found candidates** button reveals the rest, with the failed tests listed in
-the extended columns. Each candidate was inspected visually; the `Interesting` flag
-marks the ones judged convincing, and the review verdict and note are included in the
-downloadable table.
+the extended columns.
 
 Use the **Interactive plot** button in the toolbar to explore the population in any
 pair of catalog quantities. Convincing candidates are drawn as orange stars, and

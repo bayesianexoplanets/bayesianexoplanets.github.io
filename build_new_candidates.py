@@ -10,7 +10,8 @@ tests (user decision 2026-09-15): `known_eb` (the star has an ExoFOP row with TE
 or a false-positive row whose comment names an eclipsing binary, or is in KNOWN_EB_HOSTS),
 `known_transit` (a single-transit TOI of the star without a period whose ExoFOP epoch falls in one
 of the candidate's transit windows), `harmonic` (the period is an integer multiple 2..8 or fraction
-of a stronger candidate of the same star, within 2 % in log) and `review` (judged not convincing). `Interesting` marks the
+of a stronger candidate of the same star, within 2 % in log). The visual review is NOT a test (user
+decision 2026-09-15: tests must be deterministic); it stays in the verdict/confidence/note columns. `Interesting` marks the
 reviewers' `convincing` verdict; `verdict`, `confidence`, `note` carry the review. The null columns are
 left empty for merge_hier_pvalues.py and proposed_toi for assign_proposed_tois.py. plots_new/{TIC}/{idx}.jpg
 is the downscaled `{idx}_0.png` of the rerun (the FGP-subtracted diagnostic figure). Dry run by default.
@@ -35,6 +36,8 @@ from pipeline.post import on_a_line
 SHARP_LINE_MIN_FREQ = 1.5   # c/d: notched lines below this are red-noise/window leakage, not coherent oscillations
                             # (on the 83 reviewed candidates every convincing/plausible match sits at 0.10-1.0 c/d,
                             # every pulsator/EB match at >= 1.85 c/d; 2026-09-15)
+SHARP_LINE_TOL = 0.035      # c/d, the notch half width (post.on_a_line default) ...
+SHARP_LINE_REL_TOL = 0.02   # ... or 2 % of the harmonic's frequency, whichever is larger (TIC 279769094: 3.06 vs 3.00 c/d)
 
 KNOWN_EB_HOSTS = {260128333: "TOI-1338: eclipsing binary host of a circumbinary planet (Kostov et al. 2020)"}
 EB_COMMENT = r"\bEB\b|eclipsing binary|\bSB2\b"
@@ -60,7 +63,9 @@ def failed_tests(cand, line_freqs):
         failed.append("snrd")
     if int(cand["num_available_transits"]) < NTRANSITS_MIN:
         failed.append("ntransits")
-    if on_a_line(1. / float(cand["period"]), line_freqs if isinstance(line_freqs, str) else "", min_line_freq=SHARP_LINE_MIN_FREQ):
+    freq, lines = 1. / float(cand["period"]), line_freqs if isinstance(line_freqs, str) else ""
+    if any(on_a_line(k * freq, lines, n_harm=1, tol=max(SHARP_LINE_TOL, SHARP_LINE_REL_TOL * k * freq), min_line_freq=SHARP_LINE_MIN_FREQ)
+           for k in (1, 2, 3)):
         failed.append("sharp_freq")
     return failed
 
@@ -119,8 +124,6 @@ def build(apply):
             fails.append("known_transit")
         if is_harmonic(period, float(cand["SNR"]), star_candidates):
             fails.append("harmonic")
-        if s["verdict"] == "not_convincing":
-            fails.append("review")
         st = stellar.loc[tic] if tic in stellar.index else None
         rows.append({
             "TIC": tic, "TOI": np.nan, "Period": float(cand["period"]), "Phase": float(cand["phase"]), "Tau": float(cand["tau"]),
