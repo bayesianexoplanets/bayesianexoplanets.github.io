@@ -163,7 +163,7 @@ const PAGES = [
     downloadFilename: 'tess_exoplanet_catalog.csv',
     hasOodChart: true,
     collapsible: true,
-    plot:  d => `plots/${d.TIC}/${d.known_idx}.jpg`,
+    plot:  d => `plots/${d.TIC}/${d.known_idx}.jpg?v=${PLOT_VERSION}`,
     ptitle:d => `TIC ${d.TIC} · TOI ${d.TOI} · planet ${d.known_idx + 1} · P=${(+d.Period).toFixed(4)} d, Epoch=${(+d.Epoch).toFixed(4)} BTJD, Dur=${(+d.Duration).toFixed(4)} d · SNR=${(+d.SNR).toFixed(1)}` },
   { key: 'tessnew',   title: 'TESS New Candidates',      md: 'tess_new.md',       type: 'table', csv: 'tois_new.csv',
     downloadFilename: 'tess_new_candidates.csv',
@@ -174,7 +174,7 @@ const PAGES = [
     extraColumns: [
       { title: 'Proposed TOI', field: 'proposed_toi', sorter: 'number', hozAlign: 'right', width: 110, formatter: fmtTOI, _after: 'TIC' },
     ],
-    plot:  d => `plots_new/${d.TIC}/${d._cand_idx}.jpg`,
+    plot:  d => `plots_new/${d.TIC}/${d._cand_idx}.jpg?v=${PLOT_VERSION}`,
     ptitle:d => `TIC ${d.TIC} · proposed TOI ${d.proposed_toi != null ? Number(d.proposed_toi).toFixed(2) : ''} · P=${(+d.Period).toFixed(4)} d, Epoch=${(+d.Epoch).toFixed(4)} BTJD, Dur=${(+d.Duration).toFixed(4)} d · SNR=${(+d.SNR).toFixed(1)}` },
   { key: 'keplercat',  title: 'Kepler Exoplanet Catalog', md: 'kepler_catalog.md', type: 'placeholder' },
   { key: 'keplernew',  title: 'Kepler New Candidates',    md: 'kepler_new.md',     type: 'table', csv: 'kepler_online.csv',
@@ -222,6 +222,9 @@ const COLUMNS = [
 
 // Columns shown by default on the collapsible TESS tables; everything else is hidden until the
 // user clicks "Show extended catalog". (proposed_toi is the TOI-equivalent for New Candidates.)
+// bump when figures are replaced under unchanged file names, so browsers and the Pages CDN reload them
+const PLOT_VERSION = '20260915b';
+
 const TESS_DEFAULT_FIELDS = new Set(['TIC', 'TOI', 'proposed_toi', 'Period', 'SNR', 'Radius_planet', 'log10(p value)']);
 
 function buildColumns(page) {
