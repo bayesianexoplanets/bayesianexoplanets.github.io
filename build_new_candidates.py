@@ -28,7 +28,13 @@ HOME = "/global/u2/j/julius/exoplanets/"
 RUN = "/pscratch/sd/j/julius/exoprob/Rerun_20260910/"
 sys.path.insert(0, HERE)
 from merge_known_run import _to_jpg
-from recompute_failed_tests import SPURIOUS_MAX, SNRD_MIN, SNR_OVERRIDE, NTRANSITS_MIN, HARMONICS_SNRD
+from recompute_failed_tests import SPURIOUS_MAX, SNRD_MIN, SNR_OVERRIDE, NTRANSITS_MIN
+sys.path.insert(0, HOME)
+from pipeline.post import on_a_line
+
+SHARP_LINE_MIN_FREQ = 1.5   # c/d: notched lines below this are red-noise/window leakage, not coherent oscillations
+                            # (on the 83 reviewed candidates every convincing/plausible match sits at 0.10-1.0 c/d,
+                            # every pulsator/EB match at >= 1.85 c/d; 2026-09-15)
 
 KNOWN_EB_HOSTS = {260128333: "TOI-1338: eclipsing binary host of a circumbinary planet (Kostov et al. 2020)"}
 EB_COMMENT = r"\bEB\b|eclipsing binary|\bSB2\b"
@@ -42,8 +48,10 @@ COLUMNS = ["TIC", "TOI", "Period", "Phase", "Tau", "SNR", "Radius_planet", "Mass
            "proposed_toi", "nst_samples", "verdict", "confidence", "note"]
 
 
-def failed_tests(cand, sharp):
-    """recompute_failed_tests.py rules on the candidate's own diagnostics."""
+def failed_tests(cand, line_freqs):
+    """recompute_failed_tests.py rules on the candidate's own diagnostics; sharp_freq is the pipeline's
+    frequency-matched cut (post.on_a_line: the candidate frequency or its first three harmonics within the
+    notch half width of a notched line at or above SHARP_LINE_MIN_FREQ), not the legacy whole-star flag."""
     failed = []
     snr, snrd = float(cand["SNR"]), float(cand["snrd_pvalue"])
     if float(cand["spurious1"]) >= SPURIOUS_MAX:
@@ -52,7 +60,7 @@ def failed_tests(cand, sharp):
         failed.append("snrd")
     if int(cand["num_available_transits"]) < NTRANSITS_MIN:
         failed.append("ntransits")
-    if sharp and snrd > HARMONICS_SNRD and snr <= SNR_OVERRIDE:
+    if on_a_line(1. / float(cand["period"]), line_freqs if isinstance(line_freqs, str) else "", min_line_freq=SHARP_LINE_MIN_FREQ):
         failed.append("sharp_freq")
     return failed
 
@@ -102,7 +110,7 @@ def build(apply):
         star_candidates = pd.read_csv(RUN + f"candidates/batch0/{tic}.csv", sep="\t")
         cand = star_candidates[star_candidates["event_id"] == idx].iloc[0]
         star = pd.read_csv(RUN + f"stars/{tic}.csv", sep="\t").iloc[0]
-        fails = failed_tests(cand, bool(star["has_sharp_peak"]))
+        fails = failed_tests(cand, star["line_freqs"])
         host_eb, single_epochs = flags.get(tic, (False, []))
         epoch, period, duration = float(star["t_start"]) + float(cand["phase"]), float(cand["period"]), 2. * float(cand["tau"])
         if host_eb:
