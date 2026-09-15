@@ -6,8 +6,9 @@ vetting flags, not a harmonic of a known planet of the same star, and not a peri
 duplicate of a stronger candidate. By default the table shows only the candidates that pass every vetting test: the
 pipeline's own tests (spurious transits, per-transit SNR consistency, at least three
 transits, no instrumental frequency line), no known eclipsing binary on the star, no
-match to a single-transit TOI already listed for the star, and no harmonic of a
-stronger signal of the same star. The visual review is not a test: its verdict, confidence and
+match to a single-transit TOI already listed for the star, no harmonic of a
+stronger signal of the same star, and no integer or half-integer period ratio with a
+known planet of the star. The visual review is not a test: its verdict, confidence and
 note are columns, and the `Interesting` flag marks the candidates judged convincing. The
 **Show all found candidates** button reveals the rest, with the failed tests listed in
 the extended columns.
