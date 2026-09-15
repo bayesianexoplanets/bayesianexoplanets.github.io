@@ -10,7 +10,8 @@ tests (user decision 2026-09-15): `known_eb` (the star has an ExoFOP row with TE
 or a false-positive row whose comment names an eclipsing binary, or is in KNOWN_EB_HOSTS),
 `known_transit` (a single-transit TOI of the star without a period whose ExoFOP epoch falls in one
 of the candidate's transit windows), `harmonic` (the period is an integer multiple 2..8 or fraction
-of a stronger candidate of the same star, within 2 % in log). The visual review is NOT a test (user
+of a stronger candidate of the same star, within 2 % in log) and `known_harmonic` (the period is a
+ratio p/q, p, q <= 8, of a catalogued or ExoFOP period of the star, within 2 % in log). The visual review is NOT a test (user
 decision 2026-09-15: tests must be deterministic); it stays in the verdict/confidence/note columns. `Interesting` marks the
 reviewers' `convincing` verdict; `verdict`, `confidence`, `note` carry the review. The null columns are
 left empty for merge_hier_pvalues.py and proposed_toi for assign_proposed_tois.py. plots_new/{TIC}/{idx}.jpg
@@ -42,6 +43,7 @@ SHARP_LINE_REL_TOL = 0.02   # ... or 2 % of the harmonic's frequency, whichever 
 KNOWN_EB_HOSTS = {260128333: "TOI-1338: eclipsing binary host of a circumbinary planet (Kostov et al. 2020)"}
 EB_COMMENT = r"\bEB\b|eclipsing binary|\bSB2\b"
 HARMONIC_RATIOS = np.array([2, 3, 4, 5, 6, 7, 8, 1/2, 1/3, 1/4, 1/5, 1/6, 1/7, 1/8])
+KNOWN_RATIOS = np.unique([p / q for p in range(1, 9) for q in range(1, 9)])   # p/q with p, q <= 8, for known-planet residuals
 LOG_TOL = 0.02
 
 COLUMNS = ["TIC", "TOI", "Period", "Phase", "Tau", "SNR", "Radius_planet", "Mass", "Radius", "logg", "FEH", "Teff",
@@ -92,6 +94,28 @@ def star_flags(exo):
     return flags
 
 
+def known_periods(exo, catalog):
+    """TIC -> every catalogued (corrected catalog) and ExoFOP period of the star."""
+    period_col = [c for c in exo.columns if c.startswith("Period")][0]
+    periods = {}
+    for tic, period in list(zip(catalog["TIC"], catalog["Period"])) + list(zip(exo["TIC ID"], exo[period_col])):
+        try:
+            tic, period = int(tic), float(period)
+        except (ValueError, TypeError):
+            continue
+        if np.isfinite(period) and period > 0:
+            periods.setdefault(tic, []).append(period)
+    return {tic: np.array(v) for tic, v in periods.items()}
+
+
+def is_known_harmonic(period, known):
+    """True when the period is a ratio p/q (p, q <= 8) of a known period of the star, within LOG_TOL in log."""
+    if known is None or len(known) == 0:
+        return False
+    ratio = period / known[:, None] / KNOWN_RATIOS[None, :]
+    return bool((np.abs(np.log(ratio)) < LOG_TOL).any())
+
+
 def is_harmonic(period, snr, star_candidates):
     """True when a stronger candidate of the star sits at an integer multiple or fraction of the period."""
     stronger = star_candidates[star_candidates["SNR"] > snr]
@@ -107,7 +131,9 @@ def build(apply):
     stellar = catalog.drop_duplicates("TIC").set_index("TIC")
     n_known = catalog.groupby("TIC").size()
     n_new = selected.groupby("tic").size()
-    flags = star_flags(pd.read_csv(HOME + "TESS/tois.csv"))
+    exo = pd.read_csv(HOME + "TESS/tois.csv")
+    flags = star_flags(exo)
+    known = known_periods(exo, catalog)
 
     rows = []
     for _, s in selected.sort_values(["tic", "index"]).iterrows():
@@ -124,6 +150,8 @@ def build(apply):
             fails.append("known_transit")
         if is_harmonic(period, float(cand["SNR"]), star_candidates):
             fails.append("harmonic")
+        if is_known_harmonic(period, known.get(tic)):
+            fails.append("known_harmonic")
         st = stellar.loc[tic] if tic in stellar.index else None
         rows.append({
             "TIC": tic, "TOI": np.nan, "Period": float(cand["period"]), "Phase": float(cand["phase"]), "Tau": float(cand["tau"]),
