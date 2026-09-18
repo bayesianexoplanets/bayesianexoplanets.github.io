@@ -7,8 +7,9 @@ duplicate of a stronger candidate. By default the table shows only the candidate
 pipeline's own tests (spurious transits, per-transit SNR consistency, at least three
 transits, no instrumental frequency line), no known eclipsing binary on the star, no
 match to a single-transit TOI already listed for the star, no harmonic of a
-stronger signal of the same star, and no integer or half-integer period ratio with a
-known planet of the star. The visual review is not a test: its verdict, confidence and
+stronger signal of the same star, no integer or half-integer period ratio with a known planet of the star, a folded dip shaped
+like a transit rather than like a sinusoid at the same period, and a signal spread across its
+transits rather than carried by one. The visual review is not a test: its verdict, confidence and
 note are columns, and the `Interesting` flag marks the candidates judged convincing. The
 **Show all found candidates** button reveals the rest, with the failed tests listed in
 the extended columns.

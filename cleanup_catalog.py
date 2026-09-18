@@ -25,7 +25,7 @@ PLOTS_DST = os.path.join(HERE, "plots")
 BULK = "/pscratch/sd/j/julius/Bulk Download/Data"
 
 # rows to drop:  TIC -> [TOI, ...]
-DROP = {27491137: ["2076.01"]}
+DROP = {329981856: ["7039.01"], 160487753: ["1345.01"]}   # no signal: see results/nosignal17_verdicts.tsv
 
 
 def planet_order(tic):

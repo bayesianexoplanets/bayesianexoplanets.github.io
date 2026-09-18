@@ -31,9 +31,13 @@ HOME = "/global/u2/j/julius/exoplanets/"
 RUN = "/pscratch/sd/j/julius/exoprob/Rerun_20260910/"
 sys.path.insert(0, HERE)
 from merge_known_run import _to_jpg
-from recompute_failed_tests import SPURIOUS_MAX, SNRD_MIN, SNR_OVERRIDE, NTRANSITS_MIN
+from flag_rules import (SPURIOUS_MAX, SNRD_MIN, SNR_OVERRIDE, NTRANSITS_MIN, SINGLE_TRANSIT_MIN,
+                        SIGNIFICANCE_MAX, KNOWN_EB_HOSTS, EB_COMMENT, star_flags)
 sys.path.insert(0, HOME)
 from pipeline.post import on_a_line
+from false_alarms import fold_shape
+
+FOLD_CACHE = HOME + "results/rerun_fold_shape_83.tsv"   # the fold statistics of the selected candidates
 
 SHARP_LINE_MIN_FREQ = 1.5   # c/d: notched lines below this are red-noise/window leakage, not coherent oscillations
                             # (on the 83 reviewed candidates every convincing/plausible match sits at 0.10-1.0 c/d,
@@ -41,8 +45,6 @@ SHARP_LINE_MIN_FREQ = 1.5   # c/d: notched lines below this are red-noise/window
 SHARP_LINE_TOL = 0.035      # c/d, the notch half width (post.on_a_line default) ...
 SHARP_LINE_REL_TOL = 0.02   # ... or 2 % of the harmonic's frequency, whichever is larger (TIC 279769094: 3.06 vs 3.00 c/d)
 
-KNOWN_EB_HOSTS = {260128333: "TOI-1338: eclipsing binary host of a circumbinary planet (Kostov et al. 2020)"}
-EB_COMMENT = r"\bEB\b|eclipsing binary|\bSB2\b"
 HARMONIC_RATIOS = np.array([2, 3, 4, 5, 6, 7, 8, 1/2, 1/3, 1/4, 1/5, 1/6, 1/7, 1/8])
 KNOWN_RATIOS = np.unique([p / q for p in range(1, 9) for q in (1, 2)] + [q / p for p in range(1, 9) for q in (1, 2)])
 # integer multiples, halves and their inverses of a known period (p <= 8, q <= 2): a residual at ratio p/q piles up only
@@ -55,7 +57,25 @@ COLUMNS = ["TIC", "TOI", "Period", "Phase", "Tau", "SNR", "Radius_planet", "Mass
            "Number of Valid Transits", "Has Visible TTVs", "log10(p value)", "μ(SNR | null)", "σ(SNR | null)", "sm_sf_grid",
            "_cand_idx", "Multiplicity", "outlier_score", "Interesting", "ood_pvalue", "Epoch", "Duration", "err_Period",
            "err_Epoch", "err_Duration", "Radius_planet_errp", "Radius_planet_errm", "passed_all_tests", "failed_tests",
-           "proposed_toi", "nst_samples", "verdict", "confidence", "note"]
+           "proposed_toi", "nst_samples", "fold_absorbed", "fold_absorbed_pure", "fold_excess", "fold_duty",
+           "verdict", "confidence", "note"]
+
+
+def fold_stats_for(tic, period, phase, tau, cache):
+    """Fold-shape statistics of one candidate, from the cache when it holds them."""
+    key = (int(tic), round(float(period), 6))
+    if key in cache:
+        return cache[key]
+    return fold_shape.fold_shape_stats(int(tic), float(period), float(phase), float(tau))
+
+
+def load_fold_cache():
+    """{(TIC, period): stats} from a previous run of the fold-shape test, empty when absent."""
+    if not os.path.exists(FOLD_CACHE):
+        return {}
+    table = pd.read_csv(FOLD_CACHE, sep="\t")
+    return {(int(r["tic"]), round(float(r["period"]), 6)):
+            {c: r[c] for c in table.columns if c.startswith("fold_")} for _, r in table.iterrows()}
 
 
 def failed_tests(cand, line_freqs):
@@ -70,6 +90,9 @@ def failed_tests(cand, line_freqs):
         failed.append("snrd")
     if int(cand["num_available_transits"]) < NTRANSITS_MIN:
         failed.append("ntransits")
+    single = float(cand.get("single_transit_ratio", np.nan))
+    if np.isfinite(single) and single < SINGLE_TRANSIT_MIN:
+        failed.append("single_transit")
     freq, lines = 1. / float(cand["period"]), line_freqs if isinstance(line_freqs, str) else ""
     if any(on_a_line(k * freq, lines, n_harm=1, tol=max(SHARP_LINE_TOL, SHARP_LINE_REL_TOL * k * freq), min_line_freq=SHARP_LINE_MIN_FREQ)
            for k in (1, 2, 3)):
@@ -139,6 +162,7 @@ def build(apply):
     exo = pd.read_csv(HOME + "TESS/tois.csv")
     flags = star_flags(exo)
     known = known_periods(exo, catalog)
+    fold_cache = load_fold_cache()
 
     rows = []
     for _, s in selected.sort_values(["tic", "index"]).iterrows():
@@ -157,6 +181,12 @@ def build(apply):
             fails.append("harmonic")
         if is_known_harmonic(period, known.get(tic)):
             fails.append("known_harmonic")
+        fold = fold_stats_for(tic, period, float(cand["phase"]), float(cand["tau"]), fold_cache)
+        if fold_shape.fold_shape_rejects(fold):
+            fails.append("fold_shape")
+        log10p = float(s.get("log10p", np.nan))
+        if np.isfinite(log10p) and log10p >= SIGNIFICANCE_MAX:
+            fails.append("significance")
         st = stellar.loc[tic] if tic in stellar.index else None
         rows.append({
             "TIC": tic, "TOI": np.nan, "Period": float(cand["period"]), "Phase": float(cand["phase"]), "Tau": float(cand["tau"]),
@@ -173,6 +203,8 @@ def build(apply):
             "Radius_planet_errp": float(cand["radiusp"]), "Radius_planet_errm": float(cand["radiusm"]),
             "passed_all_tests": len(fails) == 0, "failed_tests": "|".join(fails) if fails else np.nan,
             "proposed_toi": np.nan, "nst_samples": np.nan,
+            "fold_absorbed": fold.get("fold_absorbed", np.nan), "fold_absorbed_pure": fold.get("fold_absorbed_pure", np.nan),
+            "fold_excess": fold.get("fold_excess", np.nan), "fold_duty": fold.get("fold_duty", np.nan),
             "verdict": s["verdict"], "confidence": int(s["confidence"]), "note": s["note"]})
     table = pd.DataFrame(rows)[COLUMNS]
     print(f"{len(table)} candidates on {table.TIC.nunique()} stars | passed_all_tests {int(table.passed_all_tests.sum())} | "
@@ -184,7 +216,8 @@ def build(apply):
         if os.path.isdir(dst_root):
             shutil.rmtree(dst_root)
         for _, r in table.iterrows():
-            _to_jpg(RUN + f"plots/{int(r.TIC)}/{int(r._cand_idx)}_0.png", os.path.join(dst_root, str(int(r.TIC)), f"{int(r._cand_idx)}.jpg"))
+            _to_jpg(RUN + f"plots/{int(r.TIC)}/{int(r._cand_idx)}_0_pretty.png",
+                    os.path.join(dst_root, str(int(r.TIC)), f"{int(r._cand_idx)}.jpg"))
         print(f"WROTE tois_new.csv and {len(table)} plots under plots_new/")
     else:
         print("dry run (pass --apply to write tois_new.csv and plots_new/)")

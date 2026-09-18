@@ -163,6 +163,8 @@ const PAGES = [
     downloadFilename: 'tess_exoplanet_catalog.csv',
     hasOodChart: true,
     collapsible: true,
+    passingFilter: true,
+    passingToggleLabel: { on: 'Show all catalog entries', off: 'Show passing entries only' },
     plot:  d => `plots/${d.TIC}/${d.known_idx}.jpg?v=${PLOT_VERSION}`,
     ptitle:d => `TIC ${d.TIC} · TOI ${d.TOI} · planet ${d.known_idx + 1} · P=${(+d.Period).toFixed(4)} d, Epoch=${(+d.Epoch).toFixed(4)} BTJD, Dur=${(+d.Duration).toFixed(4)} d · SNR=${(+d.SNR).toFixed(1)}` },
   { key: 'tessnew',   title: 'TESS New Candidates',      md: 'tess_new.md',       type: 'table', csv: 'tois_new.csv',
@@ -223,7 +225,7 @@ const COLUMNS = [
 // Columns shown by default on the collapsible TESS tables; everything else is hidden until the
 // user clicks "Show extended catalog". (proposed_toi is the TOI-equivalent for New Candidates.)
 // bump when figures are replaced under unchanged file names, so browsers and the Pages CDN reload them
-const PLOT_VERSION = '20260915b';
+const PLOT_VERSION = '20260918a';
 
 const TESS_DEFAULT_FIELDS = new Set(['TIC', 'TOI', 'proposed_toi', 'Period', 'SNR', 'Radius_planet', 'log10(p value)']);
 
@@ -524,7 +526,10 @@ const OOD_SKIP = new Set([
   'radiusp', 'radiusm', 'mass_err_high', 'mass_err_low',
   'E_Teff', 'e_Teff', 'E_logg', 'e_logg', 'E_FeH', 'e_FeH',
   'radius_err_high', 'radius_err_low',
-]);
+  'fold_absorbed',
+  'fold_absorbed_pure',
+  'fold_excess',
+  'fold_duty']);
 
 function numericCols(rows) {
   if (!rows.length) return [];
@@ -772,13 +777,16 @@ async function renderTablePage(page) {
   // the toggle reveals all found candidates (the failed tests are listed in the extended columns)
   passingOnly = !!page.passingFilter;
   if (page.passingFilter) {
+    const label = page.passingToggleLabel || { on: 'Show all found candidates', off: 'Show passing candidates only' };
     els.passingToggle.style.display = '';
-    els.passingToggle.textContent = 'Show all found candidates';
+    els.passingToggle.textContent = label.on;
     els.passingToggle.classList.remove('open');
     els.passingToggle.onclick = () => {
       passingOnly = !passingOnly;
-      els.passingToggle.textContent = passingOnly ? 'Show all found candidates' : 'Show passing candidates only';
+      els.passingToggle.textContent = passingOnly ? label.on : label.off;
       els.passingToggle.classList.toggle('open', !passingOnly);
+      // the reasons live in the extended columns, so reveal them with the failing rows
+      table.getColumns().forEach(col => { if (col.getField() === 'failed_tests') passingOnly ? col.hide() : col.show(); });
       applyFilters();
     };
   } else {
