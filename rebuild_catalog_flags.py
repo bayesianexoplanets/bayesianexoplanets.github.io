@@ -29,7 +29,8 @@ EXO = HOME + "TESS/tois.csv"
 SUMMARY = HOME + "results/catalog_vetting_20260917.tsv"
 FALLBACK_SUMMARY = "/pscratch/sd/j/julius/exoprob/CatalogRun_20260917/known_vetting_summary.csv"
 
-MAX_MISSING = 20            # rows without a re-vetting row; above this the run is incomplete, so nothing is written
+MAX_MISSING = 40            # rows without a re-vetting row; above this the run is incomplete, so nothing is written.
+                            # 18 of these are promoted candidate rows, which the catalog re-vet never covered by construction
 MAX_CONFIRMED_FOLD = 0.02   # fold_shape may reject at most this fraction of the confirmed planets
 DIAGNOSTICS = ["spurious1", "snrd_pvalue", "num_available_transits", "single_transit_ratio",
                "window_ok", "fold_absorbed", "fold_applicable"]
@@ -49,7 +50,10 @@ def rebuild(summary_path=SUMMARY, apply=False):
     """Recompute the flag columns; returns the website table and the per-row report."""
     website = pd.read_csv(TOIS)
     summary, used = load_summary(summary_path)
-    flags = star_flags(pd.read_csv(EXO))
+    exofop = pd.read_csv(EXO)
+    flags = star_flags(exofop)
+    dispositions = {(int(t), str(x)): str(d) for t, x, d           # the community's current call on each signal
+                    in zip(exofop["TIC ID"], exofop["TOI"], exofop["TFOPWG Disposition"])}
     print(f"website rows={len(website)} | re-vetting rows={len(summary)} ({used})")
 
     old_failed = website["failed_tests"].fillna("").astype(str).to_numpy()
@@ -65,6 +69,7 @@ def rebuild(summary_path=SUMMARY, apply=False):
             missing.append(key)
             new_failed.append(old_failed[index])          # keep what the row had
             continue
+        merged["TFOPWG Disposition"] = dispositions.get((int(row["TIC"]), str(row["TOI"])), "")
         eb_host = flags.get(int(row["TIC"]), (False, []))[0]
         new_failed.append("|".join(catalog_failures(merged, eb_host)))
 

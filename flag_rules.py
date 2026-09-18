@@ -22,6 +22,7 @@ from pipeline.thresholds import (SPURIOUS_MAX, SNRD_MIN, SNR_OVERRIDE,   # noqa:
 
 SIGNIFICANCE_MAX = -2.      # website only: log10 p of the SNR against the star's own null in the planet's period bin
 
+RETIRED_DISPOSITIONS = {"FP", "FA"}   # the community has retired the signal: false positive, or false alarm
 KNOWN_EB_HOSTS = {260128333: "TOI-1338: eclipsing binary host of a circumbinary planet (Kostov et al. 2020)"}
 EB_COMMENT = r"\bEB\b|eclipsing binary|\bSB2\b"
 
@@ -66,7 +67,8 @@ def catalog_failures(row, eb_host=False):
     row : mapping
         The website row merged with its re-vetting diagnostics: `SNR`, `spurious1`, `snrd_pvalue`,
         `num_available_transits`, `single_transit_ratio`, `log10(p value)`, and the fold-shape
-        columns (`fold_absorbed`, `fold_applicable`).
+        columns (`fold_absorbed`, `fold_applicable`), and `TFOPWG Disposition` from the current
+        ExoFOP table.
     eb_host : bool
         Whether the star is a known eclipsing binary.
 
@@ -94,5 +96,7 @@ def catalog_failures(row, eb_host=False):
         failed.append("significance")
     if eb_host:
         failed.append("known_eb")
+    if str(row.get("TFOPWG Disposition", "")).strip() in RETIRED_DISPOSITIONS:
+        failed.append("retired")
 
     return failed
