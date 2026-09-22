@@ -1,13 +1,17 @@
 """add_new_hosts.py -- bring the known planets of the new candidate hosts into both catalogs.
 
 `NewRun_20260919` searched 408 hosts that carried no row of our own. Its known-planet stage produced
-360 fits; the rows we publish are the **305** that are detected AND have at least three valid transits
-(user decisions of 2026-09-21: a planet we did not recover ourselves is not ours to list, and a row with
-two transits or fewer has no period-local null, so `pipeline.thresholds.NTRANSITS_MIN` removes it --
-the same rule `remove_few_transits.py` applied to the existing catalog).
+360 fits; the rows we carry forward are the **321 with at least three valid transits**.
 
-Detection is `SNR > SNR_DETECTED`. That constant is the campaign's threshold and it decides roughly
-twenty-five rows here, so it is reported explicitly rather than applied silently.
+**No SNR cut is applied here** (user decision, 2026-09-21): nothing is dropped on raw SNR, and
+significance is decided by the null-based p-value alone, the same cut every other catalog row faces in
+`rebuild_catalog_flags.py`. An SNR threshold is a different quantity from a p-value -- it is not
+calibrated against the star's own period-local null, so it cuts hardest exactly where the null is
+widest, on the variable stars whose p-values the campaign exists to measure.
+
+The one selection made here is structural: a row with two transits or fewer has no period-local null at
+all, so `pipeline.thresholds.NTRANSITS_MIN` removes it, as `remove_few_transits.py` did for the existing
+catalog (user decision, 2026-09-21).
 
 Both trees are written, in the order the rest of the close-out expects:
 
@@ -16,9 +20,8 @@ Both trees are written, in the order the rest of the close-out expects:
      `merge_known_run.py` uses (Duration = 2 Tau, Epoch = t_start + Phase, errors from the Laplace
      covariance of the run's npz, radius errors from its radius posterior).
 
-A (TIC, TOI) already present is UPDATED in place rather than duplicated; 36 of the 305 are already in
-the pipeline catalog and 32 in the website catalog, because the run covered a few stars that had a row
-already. The newer fit wins, both catalogs coming from the same code version.
+A (TIC, TOI) already present is UPDATED in place rather than duplicated, because the run covered a few
+stars that had a row already. The newer fit wins, both catalogs coming from the same code version.
 
 The null columns (`nst_samples`, mu/sigma, `sm_sf_grid`, `log10(p value)`) are left empty for
 `merge_hier_pvalues.py`, and the flags are left failing (`failed_tests = 'not_vetted'`) so that a row
@@ -52,22 +55,19 @@ WEBSITE = os.path.join(HERE, "tois.csv")
 CATALOG = HOME + "TESS/tois_corrected.csv"
 PLOTS = os.path.join(HERE, "plots")
 
-SNR_DETECTED = 7.1      # the campaign's detection threshold; see the module docstring
-
-
 def selected(folder, scratch_out):
-    """The run's publishable known-planet rows: detected, and with at least NTRANSITS_MIN transits."""
+    """The run's known-planet rows with at least NTRANSITS_MIN transits; no SNR cut."""
     table = builder.build(folder, out_path=scratch_out)
     table["TOI"] = table["TOI"].astype(float).round(2)
 
-    detected = table["SNR"] > SNR_DETECTED
     enough = table["N_valid_transits"] >= NTRANSITS_MIN
-    print("run %s: %d fits | detected %d | >= %d transits %d | publishable %d on %d stars"
-          % (folder, len(table), int(detected.sum()), NTRANSITS_MIN, int(enough.sum()),
-             int((detected & enough).sum()), table.loc[detected & enough, "TIC"].nunique()))
-    print("  dropped: %d not detected, %d detected but under %d transits"
-          % (int((~detected).sum()), int((detected & ~enough).sum()), NTRANSITS_MIN))
-    return table[detected & enough].reset_index(drop=True)
+    rows = table[enough].reset_index(drop=True)
+    print("run %s: %d fits | >= %d transits %d on %d stars | dropped %d under %d transits"
+          % (folder, len(table), NTRANSITS_MIN, len(rows), rows["TIC"].nunique(),
+             int((~enough).sum()), NTRANSITS_MIN))
+    print("  SNR of the carried rows: min %.2f, median %.2f, %d below 7.1 (kept; the p-value decides)"
+          % (rows["SNR"].min(), rows["SNR"].median(), int((rows["SNR"] <= 7.1).sum())))
+    return rows
 
 
 def npz_by_planet(folder):

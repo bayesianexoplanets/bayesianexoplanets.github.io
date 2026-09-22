@@ -8,9 +8,10 @@ one- or two-transit signal therefore has no p-value we can stand behind, whateve
 Until now such rows stayed in the catalog carrying a `num_transits` failure flag. User decision of
 2026-09-21: they are removed outright, as the retired false positives were, since we do not publish a
 row we cannot independently verify. The same rule applies to the new candidate hosts at merge time,
-where it drops 25 of the 330 detected planets, and it subsumes the five whose period lies beyond
-their star's null grid entirely - all five have exactly two transits, because the grid stops where
-the third populated window stops.
+where it drops 39 of the 360 fits (see `add_new_hosts.py`), and it subsumes every planet whose period
+lies beyond its star's null grid entirely - all ten have two transits or fewer, because the grid stops
+where the third populated window stops. It is the ONLY selection applied at merge time: nothing is
+dropped on SNR, and significance is left to the p-value (user decision, 2026-09-21).
 
 Rows are MOVED to `tois_few_transits.csv` in both trees, never deleted outright. The frontend assigns
 a figure index by per-TIC row order, so every affected star has its figures re-emitted at the new
