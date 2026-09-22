@@ -8,7 +8,7 @@ row's SNR through sm_pvalue.log10p_from_grid, exactly as apply_singh_maddala.py 
 whose TIC has no unit containing their period (fewer than three transits fit the data, or a
 star outside the rerun) have their null columns blanked and appear without a null run, the
 convention merge_rerun23.py set for a deleted null. Dry run by default; --apply writes.
-Usage: python merge_hier_pvalues.py [--apply] [--run Rerun_20260910]
+Usage: python merge_hier_pvalues.py [RUN ...] [--apply]   (default: both runs serving the catalogs)
 """
 import os
 import sys
@@ -20,19 +20,44 @@ HERE = "/global/u2/j/julius/exoplanets/TESS corrected"
 sys.path.insert(0, HERE)
 import sm_pvalue
 
+DEFAULT_RUNS = ["Rerun_20260910", "NewRun_20260919"]   # every run that serves these catalogs
+
 NULL_COLS = ["log10(p value)", "μ(SNR | null)", "σ(SNR | null)", "sm_sf_grid", "nst_samples"]
 
 
-def load_units(run):
-    """Unit table (unit, TIC, period_min, period_max, samples, sf_grid) of a rerun."""
-    outdir = f"/pscratch/sd/j/julius/exoprob/results/hierarchical_tess/{run.lower()}/"
-    units = pd.read_csv(outdir + "nst_fullrun.csv")                    # unit, TIC, period_min, period_max, samples
-    grid = pd.read_csv(outdir + "hier_grid.csv")[["unit", "sf_grid"]]
-    return units.merge(grid, on="unit", how="left").set_index("unit")
+def load_units(runs):
+    """Unit table (unit, TIC, period_min, period_max, samples, sf_grid) pooled over several reruns.
+
+    Several runs, because the catalog is no longer served by one. The 408 new hosts were searched in
+    `NewRun_20260919` and everything else in `Rerun_20260910`, and a single-run call here does not
+    simply miss the other run's rows: `merge` BLANKS every row it cannot match, so running this with
+    one run would wipe the null columns of every row belonging to the other. Unit ids are only unique
+    within a run, so they are namespaced as "run:unit" before pooling.
+    """
+    tables = []
+    for run in runs:
+        outdir = f"/pscratch/sd/j/julius/exoprob/results/hierarchical_tess/{run.lower()}/"
+        units = pd.read_csv(outdir + "nst_fullrun.csv")                # unit, TIC, period_min, period_max, samples
+        grid = pd.read_csv(outdir + "hier_grid.csv")[["unit", "sf_grid"]]
+        merged = units.merge(grid, on="unit", how="left")
+        merged["unit"] = [f"{run}:{u}" for u in merged["unit"]]
+        merged["run"] = run
+        tables.append(merged)
+        print(f"  {run}: {len(merged)} units on {merged['TIC'].nunique()} stars")
+
+    pooled = pd.concat(tables, ignore_index=True).set_index("unit")
+    clashes = pooled.reset_index().duplicated(["TIC", "period_min", "period_max"]).sum()
+    if clashes:
+        print(f"  NOTE: {clashes} (TIC, window) pairs appear in more than one run; the first run listed wins")
+    return pooled
 
 
 def match_unit(units_of_tic, period):
-    """Unit row whose window contains the period, or None."""
+    """Unit row whose window contains the period, or None.
+
+    With several runs pooled a star can own two units covering the same period; the first row wins,
+    which is the first run named on the command line.
+    """
     if units_of_tic is None:
         return None
     hit = units_of_tic[(units_of_tic["period_min"] <= period) & (period < units_of_tic["period_max"])]
@@ -76,8 +101,16 @@ def merge(name, units, apply):
 
 if __name__ == "__main__":
     apply = "--apply" in sys.argv
-    run = sys.argv[sys.argv.index("--run") + 1] if "--run" in sys.argv else "Rerun_20260910"
-    units = load_units(run)
+    runs = [a for a in sys.argv[1:] if not a.startswith("--")] or DEFAULT_RUNS
+    print("pooling null units over", ", ".join(runs))
+    units = load_units(runs)
     rows = [merge(name, units, apply) for name in ("tois.csv", "tois_new.csv")]
-    print(pd.DataFrame(rows).round(3).to_string(index=False))
+    table = pd.DataFrame(rows)
+    print(table.round(3).to_string(index=False))
+
+    # A row that matches no unit has its null columns blanked, so a jump in `unmatched` is the signal
+    # that a run is missing from the command line rather than that the catalog grew.
+    if table["unmatched"].sum():
+        print(f"\n{int(table['unmatched'].sum())} rows matched no unit and were BLANKED. "
+              f"Check that every run serving these catalogs is listed.")
     print("written" if apply else "dry run (pass --apply to write)")
