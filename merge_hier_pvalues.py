@@ -1,13 +1,9 @@
 """merge_hier_pvalues.py -- put the rerun's hierarchical NST p-values into the website catalog.
 
-For every row of tois.csv and tois_new.csv, the rerun's null unit of that TIC whose searched
-period window contains the row's Period supplies the null columns: nst_samples (the unit's
-per-batch max SNR), μ/σ(SNR | null) (their mean and population std), sm_sf_grid (the unit's
-hierarchical posterior-mean log10 SF on sm_pvalue.XGRID) and log10(p value) evaluated at the
-row's SNR through sm_pvalue.log10p_from_grid, exactly as apply_singh_maddala.py does. Rows
-whose TIC has no unit containing their period (fewer than three transits fit the data, or a
-star outside the rerun) have their null columns blanked and appear without a null run, the
-convention merge_rerun23.py set for a deleted null. Dry run by default; --apply writes.
+For every row of tois.csv and tois_new.csv, the rerun's null unit of that TIC whose searched period
+window contains the row's Period supplies the null columns (nst_samples, mu/sigma(SNR | null),
+sm_sf_grid, log10(p value)), via the same sm_pvalue.log10p_from_grid path apply_singh_maddala.py
+uses. Rows with no matching unit have their null columns blanked. Dry run by default; --apply writes.
 Usage: python merge_hier_pvalues.py [RUN ...] [--apply]   (default: both runs serving the catalogs)
 """
 import os
@@ -108,8 +104,7 @@ if __name__ == "__main__":
     table = pd.DataFrame(rows)
     print(table.round(3).to_string(index=False))
 
-    # A row that matches no unit has its null columns blanked, so a jump in `unmatched` is the signal
-    # that a run is missing from the command line rather than that the catalog grew.
+    # a jump in `unmatched` signals a missing run on the command line, not catalog growth
     if table["unmatched"].sum():
         print(f"\n{int(table['unmatched'].sum())} rows matched no unit and were BLANKED. "
               f"Check that every run serving these catalogs is listed.")

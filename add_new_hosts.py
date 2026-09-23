@@ -1,34 +1,11 @@
 """add_new_hosts.py -- bring the known planets of the new candidate hosts into both catalogs.
 
-`NewRun_20260919` searched 408 hosts that carried no row of our own. Its known-planet stage produced
-360 fits; the rows we carry forward are the **321 with at least three valid transits**.
-
-**No SNR cut is applied here** (user decision, 2026-09-21): nothing is dropped on raw SNR, and
-significance is decided by the null-based p-value alone, the same cut every other catalog row faces in
-`rebuild_catalog_flags.py`. An SNR threshold is a different quantity from a p-value -- it is not
-calibrated against the star's own period-local null, so it cuts hardest exactly where the null is
-widest, on the variable stars whose p-values the campaign exists to measure.
-
-The one selection made here is structural: a row with two transits or fewer has no period-local null at
-all, so `pipeline.thresholds.NTRANSITS_MIN` removes it, as `remove_few_transits.py` did for the existing
-catalog (user decision, 2026-09-21).
-
-Both trees are written, in the order the rest of the close-out expects:
-
-  1. `TESS/tois_corrected.csv`  -- the pipeline catalog and the source of truth.
-  2. `TESS corrected/tois.csv`  -- the website catalog, with the same value conventions
-     `merge_known_run.py` uses (Duration = 2 Tau, Epoch = t_start + Phase, errors from the Laplace
-     covariance of the run's npz, radius errors from its radius posterior).
-
-A (TIC, TOI) already present is UPDATED in place rather than duplicated, because the run covered a few
-stars that had a row already. The newer fit wins, both catalogs coming from the same code version.
-
-The null columns (`nst_samples`, mu/sigma, `sm_sf_grid`, `log10(p value)`) are left empty for
-`merge_hier_pvalues.py`, and the flags are left failing (`failed_tests = 'not_vetted'`) so that a row
-which never reaches `rebuild_catalog_flags.py` is conspicuous instead of being published as passing.
-
-Figures are re-emitted per affected star, since the frontend indexes them by per-TIC row order; they
-come from `NewRun_20260919/pretty/` and are simply reported missing until that render runs.
+Carries forward the run's known-planet rows with at least NTRANSITS_MIN valid transits; no SNR cut
+(significance is decided later by the null-based p-value). Writes both `TESS/tois_corrected.csv`
+(pipeline catalog) and `TESS corrected/tois.csv` (website catalog); an existing (TIC, TOI) row is
+updated in place rather than duplicated. Null columns are left empty for `merge_hier_pvalues.py`,
+and flags are left failing (`failed_tests = 'not_vetted'`) until `rebuild_catalog_flags.py` runs.
+Figures for touched stars are re-emitted from `NewRun_20260919/pretty/`.
 
 Dry run by default; pass --apply.
 Usage: python add_new_hosts.py [--apply] [--run NewRun_20260919]
@@ -125,8 +102,7 @@ def website_values(row, saved, t_start):
         "Number of Valid Transits": int(row["N_valid_transits"]),
         "Has Visible TTVs": False,
         "passed_all_tests": False, "failed_tests": "not_vetted",
-        # blanked on updated rows too: the SNR has moved, so an old grid and its p-value no longer
-        # belong together, and merge_hier_pvalues.py rewrites all five from the run's own nulls
+        # blanked on updated rows too: merge_hier_pvalues.py rewrites all five from the run's own nulls
         "log10(p value)": np.nan, "nst_samples": np.nan, "sm_sf_grid": np.nan,
         "μ(SNR | null)": np.nan, "σ(SNR | null)": np.nan,
     }
@@ -166,25 +142,33 @@ def merge_website(rows, saved, apply):
 
 
 def reindex_figures(folder, website, touched, apply):
-    """Re-emit every figure of each touched star at its new per-TIC index."""
+    """Re-emit every figure of each touched star at its new per-TIC index.
+
+    A star is reindexed only when EVERY one of its rows has a rendered source. Deleting first and
+    re-emitting per row destroyed 37 existing figures when the run's pretty/ directory did not exist.
+    """
     pretty = scratch + folder + "/pretty/"
 
-    written = missing = 0
+    written = missing = skipped = 0
     for tic in touched:
         tois = website.loc[website["TIC"] == tic, "TOI"].tolist()
+        sources = [pretty + "%d_%.2f.png" % (tic, toi) for toi in tois]
+        if not all(os.path.exists(source) for source in sources):
+            missing += sum(1 for source in sources if not os.path.exists(source))
+            skipped += 1
+            continue
+
         target = os.path.join(PLOTS, str(tic))
         if apply:
             for stale in glob.glob(os.path.join(target, "*.jpg")):
                 os.remove(stale)
-        for index, toi in enumerate(tois):
-            source = pretty + "%d_%.2f.png" % (tic, toi)
-            if os.path.exists(source):
-                if apply:
-                    _to_jpg(source, os.path.join(target, "%d.jpg" % index))
-                written += 1
-            else:
-                missing += 1
-    print("figures: %d available, %d still to render from %s" % (written, missing, pretty))
+        for index, source in enumerate(sources):
+            if apply:
+                _to_jpg(source, os.path.join(target, "%d.jpg" % index))
+            written += 1
+
+    print("figures: %d re-emitted, %d sources missing, %d stars left untouched (render %s first)"
+          % (written, missing, skipped, pretty))
     return written, missing
 
 
