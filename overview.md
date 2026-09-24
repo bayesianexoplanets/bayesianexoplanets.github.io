@@ -265,11 +265,11 @@ marks candidates that fail at least one vetting test.
 
 ![TESS candidates: insolation versus Teff diagram with HZ overlays](habitable_zone.png)
 
-Of the 191 new candidates (global $p < 0.01$; 124 pass every vetting test, 188
-have the stellar parameters needed for the diagram), 8 fall inside the optimistic
-habitable zone and 6 of those inside the conservative one (gold stars). None of the
-8 passes every vetting test: at periods of 102 to 453 days all of them rest on fewer
-than three transits, and on visual inspection 7 are not convincing. The eighth,
+Of the 190 new candidates (global $p < 0.01$; 124 pass every vetting test, 187
+have the stellar parameters needed for the diagram), 7 fall inside the optimistic
+habitable zone and 5 of those inside the conservative one (gold stars). None of the
+7 passes every vetting test: at periods of 102 to 453 days all of them rest on fewer
+than three transits, and on visual inspection 6 are not convincing. The eighth,
 TIC 290777444, has a period of 364 days, suspiciously close to one year. The list
 as a whole is dominated by short periods (median 8.0 d). For comparison, 21 of the
 5 377 known TOIs with stellar parameters lie in the optimistic zone (19 pass all

@@ -12,6 +12,7 @@ the 2026-09-24 additions) sorts each candidate (user decision 2026-09-18, reaffi
 - known_eb, known_variable, blend_neighbour -> DROPPED to tois_new_dropped.csv with the identification:
   the signal is not a new planet of the target; so is a known object with fewer than three transits
   (`ntransits`), which the catalog removes rather than flags (user decision 2026-09-21);
+- manual_exclusion (manual_exclusions.tsv, user decisions with their reason) -> DROPPED likewise;
 - novel, unclear, or no cross-match row -> kept.
 Names have commas stripped: the site's CSV parser splits on them.
 
@@ -30,11 +31,12 @@ TOIS = os.path.join(HERE, "tois.csv")
 TOIS_NEW = os.path.join(HERE, "tois_new.csv")
 DROPPED = os.path.join(HERE, "tois_new_dropped.csv")
 PLOTS, PLOTS_NEW = os.path.join(HERE, "plots"), os.path.join(HERE, "plots_new")
-SOURCES = [HOME + "results/newcand_prior_verdicts.tsv"] + \
+SOURCES = [os.path.join(HERE, "manual_exclusions.tsv"),            # first: a user exclusion overrides the cross-match
+           HOME + "results/newcand_prior_verdicts.tsv"] + \
     [f"/pscratch/sd/j/julius/exoprob/tmp/hier_vi2/crossmatch_{k}.tsv" for k in "abcd"]
 
 PROMOTE = {"known_planet", "known_toi", "known_ctoi", "known_toi_harmonic"}
-DROP = {"known_eb", "known_variable", "blend_neighbour"}
+DROP = {"known_eb", "known_variable", "blend_neighbour", "manual_exclusion"}
 TOL = 0.001                        # relative period agreement of a cross-match row and a candidate
 
 
