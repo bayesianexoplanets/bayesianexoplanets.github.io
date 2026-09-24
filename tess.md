@@ -6,7 +6,9 @@ could make use of the statistical validation tools developed in
 [Robnik et al. (2024)](https://arxiv.org/abs/2407.17565). This limited us to consider
 $\sim 80$ % of the data, or about 5,000 stars. We report for each planetary candidate the $p$-value of its SNR against the star's own
 null distribution in the planet's period bin (the Null Signal Template (NST) test of the
-aforementioned paper, with a hierarchical prior pooled over all stars; see the Overview).
+aforementioned paper, with a hierarchical prior pooled over all stars), multiplied by the
+star's number of period bins to account for the search over all of them (the global
+$p$-value; the local one is listed too, see the Overview).
 
 By default the table shows only the planets that pass every automatic test: no transit better
 explained by a false-alarm scenario or by an overlapping deeper planet of the same star, a signal

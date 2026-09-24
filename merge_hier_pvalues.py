@@ -2,9 +2,13 @@
 
 For every row of tois.csv and tois_new.csv, the rerun's null unit of that TIC whose searched period
 window contains the row's Period supplies the null columns (nst_samples, mu/sigma(SNR | null),
-sm_sf_grid, log10(p value)), via the same sm_pvalue.log10p_from_grid path apply_singh_maddala.py
-uses. Rows with no matching unit have their null columns blanked. Dry run by default; --apply writes.
-Usage: python merge_hier_pvalues.py [RUN ...] [--apply]   (default: both runs serving the catalogs)
+sm_sf_grid, log10(p value), log10(p local), n_period_bins). The local p is the exact quadrature value at
+the row's SNR from row_pvalues.csv (sm_pvalue.log10p_from_grid interpolation only as the fallback); the
+reported log10(p value) is GLOBAL, p = min(1, n_bins x p_local) with n_bins the star's number of
+period-local null bins (results/star_nbins.csv; user decision 2026-09-24). sm_sf_grid stays the LOCAL
+survival function, so the site's panel can draw it against the unit's own null samples. Rows with no
+matching unit have their null columns blanked. Dry run by default; --apply writes.
+Usage: python merge_hier_pvalues.py [RUN ...] [--apply]   (default: the pooled run directory)
 """
 import os
 import sys
@@ -16,9 +20,10 @@ HERE = "/global/u2/j/julius/exoplanets/TESS corrected"
 sys.path.insert(0, HERE)
 import sm_pvalue
 
-DEFAULT_RUNS = ["Rerun_20260910", "NewRun_20260919"]   # every run that serves these catalogs
+DEFAULT_RUNS = ["Rerun_20260910"]   # the pooled fit over Rerun_20260910 + NewRun_20260919 writes all units here
 
-NULL_COLS = ["log10(p value)", "μ(SNR | null)", "σ(SNR | null)", "sm_sf_grid", "nst_samples"]
+NULL_COLS = ["log10(p value)", "log10(p local)", "n_period_bins", "μ(SNR | null)", "σ(SNR | null)", "sm_sf_grid", "nst_samples"]
+NBINS = "/global/u2/j/julius/exoplanets/results/star_nbins.csv"
 
 
 def load_units(runs):
@@ -60,12 +65,36 @@ def match_unit(units_of_tic, period):
     return hit.iloc[0] if len(hit) else None
 
 
-def merge(name, units, apply):
-    """Rewrite the null columns of one catalog file from the rerun units; returns the summary row."""
+def load_exact(runs):
+    """Exact log10 p per (TIC, Period, SNR): catalog rows and batch-0 candidates, from tess_rerun_pvalues."""
+    exact = {}
+    for run in runs:
+        path = f"/pscratch/sd/j/julius/exoprob/results/hierarchical_tess/{run.lower()}/row_pvalues.csv"
+        if os.path.exists(path):
+            for r in pd.read_csv(path).itertuples(index=False):
+                if np.isfinite(r.log10p):
+                    exact.setdefault((int(r.TIC), round(float(r.Period), 6), round(float(r.SNR), 4)), r.log10p)
+    return exact
+
+
+def to_global(log10p_local, n_bins):
+    """Bonferroni over the star's period bins: log10 min(1, n_bins x p_local)."""
+    return min(0., log10p_local + np.log10(n_bins))
+
+
+def merge(name, units, apply, exact=None, nbins=None):
+    """Rewrite the null columns of one catalog file from the rerun units; returns the summary row.
+
+    log10(p local) is the exact per-row quadrature value where one exists, else the grid interpolation;
+    log10(p value) is its global (Bonferroni) version."""
     path = os.path.join(HERE, name)
     df = pd.read_csv(path)
     by_tic = {t: g for t, g in units.groupby("TIC")}
     old_lp = df["log10(p value)"].to_numpy(dtype=float).copy()    # a view would follow the rewrite
+    exact = exact or {}
+    for offset, column in enumerate(("log10(p local)", "n_period_bins"), start=1):
+        if column not in df.columns:
+            df.insert(df.columns.get_loc("log10(p value)") + offset, column, np.nan)
 
     n_matched, n_grid = 0, 0
     for i, row in df.iterrows():
@@ -78,14 +107,23 @@ def merge(name, units, apply):
         df.loc[i, "nst_samples"] = "|".join(f"{x:.6f}" for x in samples) if len(samples) else np.nan
         df.loc[i, "μ(SNR | null)"] = round(float(samples.mean()), 4) if len(samples) else np.nan
         df.loc[i, "σ(SNR | null)"] = round(float(samples.std()), 6) if len(samples) else np.nan
+        n = int(nbins[int(row["TIC"])])
         df.loc[i, "sm_sf_grid"] = unit["sf_grid"]
-        df.loc[i, "log10(p value)"] = sm_pvalue.log10p_from_grid(unit["sf_grid"], float(row["SNR"]))
+        df.loc[i, "n_period_bins"] = n
+        key = (int(row["TIC"]), round(float(row["Period"]), 6), round(float(row["SNR"]), 4))
+        if key in exact:
+            local = round(float(exact[key]), 4)
+        else:
+            local = sm_pvalue.log10p_from_grid(unit["sf_grid"], float(row["SNR"]))
+            n_grid += 1
+        df.loc[i, "log10(p local)"] = local
+        df.loc[i, "log10(p value)"] = round(to_global(local, n), 4)
         n_matched += 1
 
     new_lp = df["log10(p value)"].to_numpy(dtype=float)
     both = np.isfinite(old_lp) & np.isfinite(new_lp)
     shift = new_lp[both] - old_lp[both]
-    summary = dict(file=name, rows=len(df), matched=n_matched, unmatched=len(df) - n_matched,
+    summary = dict(file=name, rows=len(df), matched=n_matched, unmatched=len(df) - n_matched, grid_fallback=n_grid,
                    old_significant=int((old_lp < -2).sum()), new_significant=int((new_lp < -2).sum()),
                    shift_median=float(np.median(shift)) if len(shift) else np.nan,
                    shift_p5=float(np.percentile(shift, 5)) if len(shift) else np.nan,
@@ -100,7 +138,10 @@ if __name__ == "__main__":
     runs = [a for a in sys.argv[1:] if not a.startswith("--")] or DEFAULT_RUNS
     print("pooling null units over", ", ".join(runs))
     units = load_units(runs)
-    rows = [merge(name, units, apply) for name in ("tois.csv", "tois_new.csv")]
+    exact = load_exact(runs)
+    nbins = pd.read_csv(NBINS).set_index("kepid")["n_bins"]
+    print(f"  {len(exact)} exact per-row p-values; period-bin counts for {len(nbins)} stars")
+    rows = [merge(name, units, apply, exact, nbins) for name in ("tois.csv", "tois_new.csv")]
     table = pd.DataFrame(rows)
     print(table.round(3).to_string(index=False))
 

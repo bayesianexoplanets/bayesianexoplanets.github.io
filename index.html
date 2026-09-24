@@ -217,7 +217,9 @@ const COLUMNS = [
   { title: 'logg',        field: 'logg',                 sorter: 'number',  hozAlign: 'right',  width: 80,  formatter: fmtSig },
   { title: '[Fe/H]',      field: 'FEH',                  sorter: 'number',  hozAlign: 'right',  width: 80,  formatter: fmtSig },
   { title: 'Teff [K]',    field: 'Teff',                 sorter: 'number',  hozAlign: 'right',  width: 90,  formatter: fmtSig },
-  { title: 'log₁₀ p', field: 'log10(p value)', sorter: 'number',  hozAlign: 'right',  width: 95,  formatter: fmtSig },
+  { title: 'log₁₀ p (global)', field: 'log10(p value)', sorter: 'number',  hozAlign: 'right',  width: 125, formatter: fmtSig },
+  { title: 'log₁₀ p (local)',  field: 'log10(p local)', sorter: 'number',  hozAlign: 'right',  width: 120, formatter: fmtSig },
+  { title: 'period bins',      field: 'n_period_bins',  sorter: 'number',  hozAlign: 'right',  width: 95,  formatter: fmtInt },
   { title: 'μ(null)', field: 'μ(SNR | null)',   sorter: 'number',  hozAlign: 'right',  width: 80,  formatter: fmtSig },
   { title: 'σ(null)', field: 'σ(SNR | null)',   sorter: 'number',  hozAlign: 'right',  width: 80,  formatter: fmtSig },
 ];
@@ -225,7 +227,7 @@ const COLUMNS = [
 // Columns shown by default on the collapsible TESS tables; everything else is hidden until the
 // user clicks "Show extended catalog". (proposed_toi is the TOI-equivalent for New Candidates.)
 // bump when figures are replaced under unchanged file names, so browsers and the Pages CDN reload them
-const PLOT_VERSION = '20260918a';
+const PLOT_VERSION = '20260924a';
 
 const TESS_DEFAULT_FIELDS = new Set(['TIC', 'TOI', 'proposed_toi', 'Period', 'SNR', 'Radius_planet', 'log10(p value)']);
 
@@ -366,7 +368,7 @@ function drawPow10(ctx, exp, xRight, y, F) {
 
 // Per-candidate survival-function (log scale) panel: the star's Singh-Maddala posterior-mean SF
 // model vs the empirical NST survival function, with the candidate's SNR and p-value.
-function drawNullSF(canvas, sfGridStr, snr, log10p, nstSamplesStr) {
+function drawNullSF(canvas, sfGridStr, snr, log10p, nstSamplesStr, log10pGlobal, nBins) {
   const W = 1300, H = 800, ctx = canvas.getContext('2d');
   canvas.width = W; canvas.height = H;
   ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, W, H);
@@ -468,11 +470,12 @@ function drawNullSF(canvas, sfGridStr, snr, log10p, nstSamplesStr) {
   });
   ctx.save(); ctx.translate(30, (py0 + py1) / 2); ctx.rotate(-Math.PI / 2);
   ctx.fillStyle = '#374151'; ctx.textAlign = 'center'; ctx.font = '28px sans-serif';
-  ctx.fillText('survival function   p = P(noise ≥ SNR)', 0, 0); ctx.restore();
+  ctx.fillText(log10pGlobal != null ? 'survival function in the period bin   P(noise ≥ SNR)' : 'survival function   p = P(noise ≥ SNR)', 0, 0); ctx.restore();
 
   // p-value label
-  const pval = 10 ** log10p;
-  const pStr = (pval < 1e-4 || pval === 0) ? (log10p <= -300 ? '<1e-300' : pval.toExponential(2)) : pval.toFixed(4);
+  const fmtP = (lp) => { const v = 10 ** lp; return (v < 1e-4 || v === 0) ? (lp <= -300 ? '<1e-300' : v.toExponential(2)) : v.toFixed(4); };
+  const pStr = fmtP(log10p);
+  const hasGlobal = log10pGlobal != null && isFinite(log10pGlobal);
 
   // legend (lower-left, over the light fill)
   const items = [
@@ -485,7 +488,7 @@ function drawNullSF(canvas, sfGridStr, snr, log10p, nstSamplesStr) {
       draw: cy => { ctx.beginPath(); ctx.arc(24, cy, 8, 0, 2 * Math.PI);
         ctx.fillStyle = '#143b66'; ctx.fill(); ctx.strokeStyle = '#fff'; ctx.lineWidth = 2.5; ctx.stroke(); } });
   items.push(
-    { label: `candidate   p = ${pStr}`,
+    { label: hasGlobal ? `candidate   p = ${pStr} local, ${fmtP(log10pGlobal)} global (${nBins} bins)` : `candidate   p = ${pStr}`,
       draw: cy => { ctx.beginPath(); ctx.arc(24, cy, 9, 0, 2 * Math.PI);
         ctx.fillStyle = '#d6453f'; ctx.fill(); ctx.strokeStyle = '#fff'; ctx.lineWidth = 2.5; ctx.stroke(); } });
 
@@ -701,7 +704,9 @@ function showPlot(page, d) {
     els.nst.style.display = 'none';
   } else {
     els.nst.style.display = '';
-    drawNullSF(els.nst, d['sm_sf_grid'] || '', d.SNR, d['log10(p value)'], d['nst_samples'] || '');
+    const hasLocal = d['log10(p local)'] != null;            // TESS pages: the panel is local, the reported p global
+    drawNullSF(els.nst, d['sm_sf_grid'] || '', d.SNR, hasLocal ? d['log10(p local)'] : d['log10(p value)'], d['nst_samples'] || '',
+               hasLocal ? d['log10(p value)'] : null, d['n_period_bins']);
   }
   els.plotPanel.classList.add('visible');
   els.plotPanel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });

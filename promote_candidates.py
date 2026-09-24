@@ -14,6 +14,9 @@ decision 2026-09-18). Three cases, each already carried as a deterministic token
   row of this very list.
 - `known_eb` -> DROPPED. The host is a known eclipsing binary.
 
+A row that would be promoted but carries `ntransits` (fewer than three transits) is DROPPED instead: the
+catalog removes such rows rather than flagging them (user decision 2026-09-21).
+
 The frontend assigns a figure index by per-TIC row order (`index.html`), so a promoted row is appended
 at the END of `tois.csv`: every existing row keeps its index and the new row takes the next one.
 
@@ -64,9 +67,10 @@ def main(apply):
     candidates = pd.read_csv(TOIS_NEW)
     exofop = pd.read_csv(HOME + "TESS/tois.csv")
 
-    promote = candidates[candidates.apply(lambda r: PROMOTE in tokens(r), axis=1)]
-    drop = candidates[candidates.apply(lambda r: any(t in tokens(r) for t in DROP_TOKENS)
-                                       and PROMOTE not in tokens(r), axis=1)]
+    too_few = candidates.apply(lambda r: "ntransits" in tokens(r), axis=1)
+    promote = candidates[candidates.apply(lambda r: PROMOTE in tokens(r), axis=1) & ~too_few]
+    drop = candidates[candidates.apply(lambda r: (any(t in tokens(r) for t in DROP_TOKENS) and PROMOTE not in tokens(r))
+                                       or PROMOTE in tokens(r), axis=1).to_numpy() & ~candidates.index.isin(promote.index)]
     keep = candidates.drop(index=promote.index.union(drop.index))
 
     print("candidates %d -> promoted %d, dropped %d, kept %d" % (len(candidates), len(promote), len(drop), len(keep)))
@@ -95,8 +99,10 @@ def main(apply):
 
     pd.concat([website, pd.DataFrame(rows)], ignore_index=True).to_csv(TOIS, index=False)
     keep.to_csv(TOIS_NEW, index=False)
-    drop.assign(drop_reason=[ "|".join(t for t in tokens(c) if t in DROP_TOKENS) for _, c in drop.iterrows()]) \
-        .to_csv(DROPPED, index=False)
+    dropped = drop.assign(drop_reason=["|".join(t for t in tokens(c) if t in DROP_TOKENS + (PROMOTE, "ntransits"))
+                                       for _, c in drop.iterrows()])
+    previous = pd.read_csv(DROPPED) if os.path.exists(DROPPED) else pd.DataFrame()     # keeps earlier identifications
+    pd.concat([previous, dropped], ignore_index=True).drop_duplicates(["TIC", "Period"], keep="last").to_csv(DROPPED, index=False)
 
     for tic, cand_idx, index_here in copies:
         source = os.path.join(PLOTS_NEW, str(tic), "%d.jpg" % cand_idx)

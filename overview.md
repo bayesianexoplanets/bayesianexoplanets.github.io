@@ -151,10 +151,10 @@ each star's own noise floor empirically with null searches: the pipeline is run
 again with perturbed search grids (different random seeds), so that it can only
 find noise peaks, never a coherent planet. Because the noise floor also depends
 on the period range (short periods offer far more trial phases than long ones),
-the null searches are **period-local**: for each star we run ten of them in the
-period bin of every catalogued planet and in the bins of its three strongest
+the null searches are **period-local**: for each star we run a hundred of them in
+the period bin of every catalogued planet and in the bins of its three strongest
 blind candidates, each restricted to that bin (about 9 % wide in period) and to
-periods with at least three transits in the baseline. The ten resulting max-SNR
+periods with at least three transits in the baseline. The resulting max-SNR
 values form the null distribution of that (star, period bin).
 
 These null SNRs are **not Gaussian**. They have a heavy right tail, so a normal
@@ -172,47 +172,62 @@ $$
 The survival-function panel (right) makes the point: in the tail the Gaussian
 plunges far below the data, while the Singh-Maddala tracks it.
 
-**Hierarchical Bayesian fit.** With only ten samples per null set a free
-three-parameter fit is noisy, so the parameters are not fitted in isolation.
-Every (star, period bin) null set has its own $(c,k,\lambda)$, drawn from a
-population whose mean, spread and correlations are themselves fitted jointly to
-all 21 000 null sets of the catalog, separately in six period ranges (below 1 d,
-1 to 3 d, 3 to 10 d, 10 to 30 d, 30 to 100 d, above 100 d). The joint posterior
-is sampled by Monte Carlo (two independent chains per period range; all
-population parameters agree between chains to better than $\hat R = 1.05$, and
-the resulting p-values to better than 0.05 dex). Null sets with too few usable
-samples receive the population-predictive distribution of their period range.
+**Hierarchical Bayesian fit.** Even a hundred samples pin down the far tail of a
+three-parameter distribution only loosely, so the parameters are not fitted in
+isolation. Every (star, period bin) null set has its own $(c,k,\lambda)$, drawn
+from a population whose mean, spread and correlations are themselves fitted
+jointly to all 22 000 null sets of the catalog, separately in six period ranges
+(below 1 d, 1 to 3 d, 3 to 10 d, 10 to 30 d, 30 to 100 d, above 100 d). The
+population is heavy-tailed in the scale $\lambda$ (a Student-t in $\log\lambda$),
+because a few stars are far noisier than the rest. The joint posterior is sampled
+by Monte Carlo (two independent chains per period range; all population
+parameters agree between chains to better than $\hat R = 1.05$, and the resulting
+p-values to better than 0.05 dex). Null sets with too few usable samples receive
+the population-predictive distribution of their period range.
 
-A candidate's significance is then the **posterior-mean survival function** at its
-SNR, marginalised over the parameter uncertainty of its own null set,
+Some null sets are not noise at all: in about 300 of them fewer than 10 % of the
+hundred null maxima are distinct, because the same instrumental feature wins most
+null runs. They are fitted one by one with the population as prior, each distinct
+value counting once in total rather than once per repeat, and their p-value is
+never quoted below the fraction of their own null runs that reach the SNR.
+
+A candidate's local significance is then the **posterior-mean survival function**
+at its SNR, marginalised over the parameter uncertainty of its own null set and
+evaluated by deterministic integration over that posterior,
 
 $$
 p = \mathbb{E}_{\text{posterior}}\!\big[\,\mathrm{SF}(\mathrm{SNR}_\mathrm{cand} \mid c,k,\lambda)\,\big] .
 $$
 
 Marginalising, rather than plugging in a single best-fit $(c,k,\lambda)$, is
-essential: it fattens the tail to reflect that ten samples cannot fully pin down
-the distribution, yielding a properly conservative p-value. (Click any row in the
-catalog tables to see this survival function, the ten NST samples, and where the
-candidate falls.)
+essential: it fattens the tail to reflect that a finite number of samples cannot
+fully pin down the distribution, yielding a properly conservative p-value. (Click
+any row in the catalog tables to see this survival function, the NST samples, and
+where the candidate falls.)
 
 **Are ten NSTs enough, and does the prior help?** On synthetic data we compare
 three estimators of the true p-value: the Gaussian, an unregularised
 (maximum-likelihood) Singh-Maddala, and a Singh-Maddala with an informed prior.
 The Gaussian is biased at every sample size; the unregularised fit is unbiased
 but noisy for few samples; the informed-prior fit is both unbiased and stable
-from a handful of NSTs onward, so the ten used in production suffice:
+from a handful of NSTs onward; production uses a hundred per null set:
 
 ![p-value estimators vs number of NST samples: Gaussian, no-prior and informed-prior Singh-Maddala](overview_nst_pvalue.png)
 
-**What the p-value means.** It is the probability that noise in the candidate's
-own period bin produces a peak at least as high as the candidate. The blind
-search, however, examined about a hundred such bins per star, so the chance of
-finding such a peak *somewhere* is correspondingly larger. The catalog does not
-apply this look-elsewhere correction across bins; the new-candidate list
-therefore uses the threshold $p < 10^{-4}$, the period-local equivalent of a
-1 % chance over a hundred bins, and every candidate above it was inspected by
-eye (see the TESS New Candidates page).
+**What the p-value means.** The local p-value above is the probability that noise
+in the candidate's own period bin produces a peak at least as high as the
+candidate. The blind search, however, examined every period bin of the star (about
+a hundred, fewer for short baselines), so the chance of finding such a peak
+*somewhere* is correspondingly larger. The tables therefore report the **global**
+p-value, the local one multiplied by the star's number of period bins $N$,
+
+$$
+p_\mathrm{global} = \min\big(1,\; N\, p_\mathrm{local}\big),
+$$
+
+which bounds the chance of such a peak anywhere in the star's search range. A
+signal counts as significant at $p_\mathrm{global} < 0.01$; the local value and $N$
+are listed alongside it.
 
 **How significant are the candidates?** Comparing the $-\log_{10}(p)$
 distributions of known TOIs and our new candidates (larger means more

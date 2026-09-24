@@ -1,8 +1,10 @@
-"""build_new_candidates.py -- rebuild tois_new.csv and plots_new/ from the rerun's p-value selection.
+"""build_new_candidates.py -- rebuild tois_new.csv and plots_new/ from the p-value selection.
 
-Rows: the candidates of `results/rerun_hier_top83_verdicts.csv` (local hierarchical p < 1e-4, vetting
-flags passed, harmonics of known periods and within-star duplicates removed, visually reviewed).
-Values come from the candidate's own batch0 row of the rerun (Period, Phase, Tau, SNR, errors, radius
+Rows: the `selected` candidates of `results/rerun_hier_new_candidates_clean.csv` (global hierarchical
+p < 0.01, i.e. the local p times the star's number of period bins; vetting flags passed; harmonics of
+known periods and within-star duplicates removed), from Rerun_20260910 or NewRun_20260919 (`run`),
+each carrying the verdict of its visual review (2026-09-15 for the first 83, 2026-09-24 for the rest).
+Values come from the candidate's own batch0 row of its run (Period, Phase, Tau, SNR, errors, radius
 posterior, number of transits, diagnostics), the star's stellar parameters from TESS/tois_corrected.csv,
 Epoch = t_start + Phase and Duration = 2 Tau as in merge_known_run.py, and the pass/fail flags from the
 rules of recompute_failed_tests.py applied to the candidate's own diagnostics, plus four further
@@ -10,9 +12,10 @@ tests (user decision 2026-09-15): `known_eb` (the star has an ExoFOP row with TE
 or a false-positive row whose comment names an eclipsing binary, or is in KNOWN_EB_HOSTS),
 `known_transit` (a single-transit TOI of the star without a period whose ExoFOP epoch falls in one
 of the candidate's transit windows), `harmonic` (the period is an integer multiple 2..8 or fraction
-of a stronger candidate of the same star, within 2 % in log) and `known_harmonic` (the period is an
-integer multiple, half-integer multiple or the inverse thereof, p <= 8, of a catalogued or ExoFOP period
-of the star, within 2 % in log). The visual review is NOT a test (user
+of a stronger candidate of the same star, within 2 % in log). Leftovers of known planets (transit or
+secondary-eclipse times, or the same period) never reach this list: the selection removes them
+(analysis/known_overlap.py), which replaced the `known_harmonic` period-ratio token on 2026-09-24. The
+visual review is NOT a test (user
 decision 2026-09-15: tests must be deterministic); it stays in the verdict/confidence/note columns. `Interesting` marks the
 reviewers' `convincing` verdict; `verdict`, `confidence`, `note` carry the review. The null columns are
 left empty for merge_hier_pvalues.py and proposed_toi for assign_proposed_tois.py. plots_new/{TIC}/{idx}.jpg
@@ -28,7 +31,10 @@ import pandas as pd
 
 HERE = "/global/u2/j/julius/exoplanets/TESS corrected"
 HOME = "/global/u2/j/julius/exoplanets/"
-RUN = "/pscratch/sd/j/julius/exoprob/Rerun_20260910/"
+SCRATCH = "/pscratch/sd/j/julius/exoprob/"
+SELECTION = HOME + "results/rerun_hier_new_candidates_clean.csv"
+VERDICTS = [HOME + "results/rerun_hier_top83_verdicts.csv"] + \
+    [SCRATCH + f"tmp/hier_vi2/verdicts_{k}.csv" for k in range(9)]
 sys.path.insert(0, HERE)
 from merge_known_run import _to_jpg
 from flag_rules import (SPURIOUS_MAX, SNRD_MIN, SNR_OVERRIDE, NTRANSITS_MIN, SINGLE_TRANSIT_MIN,
@@ -37,7 +43,8 @@ sys.path.insert(0, HOME)
 from pipeline.post import on_a_line
 from false_alarms import fold_shape
 
-FOLD_CACHE = HOME + "results/rerun_fold_shape_83.tsv"   # the fold statistics of the selected candidates
+FOLD_CACHES = [HOME + "results/rerun_fold_shape_83.tsv",   # the fold statistics of the selected candidates
+               HOME + "results/newcand_fold_shape_20260924.tsv"]
 
 SHARP_LINE_MIN_FREQ = 1.5   # c/d: notched lines below this are red-noise/window leakage, not coherent oscillations
                             # (on the 83 reviewed candidates every convincing/plausible match sits at 0.10-1.0 c/d,
@@ -46,11 +53,6 @@ SHARP_LINE_TOL = 0.035      # c/d, the notch half width (post.on_a_line default)
 SHARP_LINE_REL_TOL = 0.02   # ... or 2 % of the harmonic's frequency, whichever is larger (TIC 279769094: 3.06 vs 3.00 c/d)
 
 HARMONIC_RATIOS = np.array([2, 3, 4, 5, 6, 7, 8, 1/2, 1/3, 1/4, 1/5, 1/6, 1/7, 1/8])
-KNOWN_RATIOS = np.unique([p / q for p in range(1, 9) for q in (1, 2)] + [q / p for p in range(1, 9) for q in (1, 2)])
-# integer multiples, halves and their inverses of a known period (p <= 8, q <= 2): a residual at ratio p/q piles up only
-# 1/q of the known transits per candidate phase, and on the 83 reviewed candidates every ratio with q >= 3 that
-# matched within 2 % was a chance match on a convincing candidate (3/5, 3/7, 7/4, ...); the one genuine 5/3 case
-# (TIC 296670796) is left to the visual review (2026-09-15)
 LOG_TOL = 0.02
 
 COLUMNS = ["TIC", "TOI", "Period", "Phase", "Tau", "SNR", "Radius_planet", "Mass", "Radius", "logg", "FEH", "Teff",
@@ -70,12 +72,27 @@ def fold_stats_for(tic, period, phase, tau, cache):
 
 
 def load_fold_cache():
-    """{(TIC, period): stats} from a previous run of the fold-shape test, empty when absent."""
-    if not os.path.exists(FOLD_CACHE):
-        return {}
-    table = pd.read_csv(FOLD_CACHE, sep="\t")
-    return {(int(r["tic"]), round(float(r["period"]), 6)):
-            {c: r[c] for c in table.columns if c.startswith("fold_")} for _, r in table.iterrows()}
+    """{(TIC, period): stats} from previous runs of the fold-shape test (submissions/newcand_assets.py)."""
+    cache = {}
+    for path in FOLD_CACHES:
+        if os.path.exists(path):
+            table = pd.read_csv(path, sep="\t")
+            table = table[table["error"].isna()] if "error" in table.columns else table
+            cache.update({(int(r["tic"]), round(float(r["period"]), 6)):
+                          {c: r[c] for c in table.columns if c.startswith("fold_")} for _, r in table.iterrows()})
+    return cache
+
+
+def load_verdicts():
+    """{(TIC, batch0 index): (verdict, confidence, note)} from every visual review, the latest winning."""
+    out = {}
+    for path in VERDICTS:
+        if os.path.exists(path):
+            table = pd.read_csv(path, sep="\t" if path.endswith(".csv") and "top83" in path else ",")
+            for r in table.itertuples():
+                confidence = int(r.confidence) if pd.notna(r.confidence) else 0
+                out[(int(r.tic), int(r.index))] = (r.verdict, confidence, r.note)
+    return out
 
 
 def failed_tests(cand, line_freqs):
@@ -136,14 +153,6 @@ def known_periods(exo, catalog):
     return {tic: np.array(v) for tic, v in periods.items()}
 
 
-def is_known_harmonic(period, known):
-    """True when the period is a ratio p/q (p, q <= 8) of a known period of the star, within LOG_TOL in log."""
-    if known is None or len(known) == 0:
-        return False
-    ratio = period / known[:, None] / KNOWN_RATIOS[None, :]
-    return bool((np.abs(np.log(ratio)) < LOG_TOL).any())
-
-
 def is_harmonic(period, snr, star_candidates):
     """True when a stronger candidate of the star sits at an integer multiple or fraction of the period."""
     stronger = star_candidates[star_candidates["SNR"] > snr]
@@ -154,19 +163,22 @@ def is_harmonic(period, snr, star_candidates):
 
 
 def build(apply):
-    selected = pd.read_csv(HOME + "results/rerun_hier_top83_verdicts.csv", sep="\t")
+    selected = pd.read_csv(SELECTION, sep="\t")
+    selected = selected[selected["selected"]].rename(columns={"kepid": "tic", "event_id": "index"})
+    verdicts = load_verdicts()
     catalog = pd.read_csv(HOME + "TESS/tois_corrected.csv", sep="\t")
     stellar = catalog.drop_duplicates("TIC").set_index("TIC")
     n_known = catalog.groupby("TIC").size()
     n_new = selected.groupby("tic").size()
     exo = pd.read_csv(HOME + "TESS/tois.csv")
     flags = star_flags(exo)
-    known = known_periods(exo, catalog)
     fold_cache = load_fold_cache()
 
     rows = []
     for _, s in selected.sort_values(["tic", "index"]).iterrows():
         tic, idx = int(s["tic"]), int(s["index"])
+        RUN = SCRATCH + s["run"] + "/"
+        verdict, confidence, note = verdicts.get((tic, idx), ("not reviewed", 0, ""))
         star_candidates = pd.read_csv(RUN + f"candidates/batch0/{tic}.csv", sep="\t")
         cand = star_candidates[star_candidates["event_id"] == idx].iloc[0]
         star = pd.read_csv(RUN + f"stars/{tic}.csv", sep="\t").iloc[0]
@@ -179,12 +191,10 @@ def build(apply):
             fails.append("known_transit")
         if is_harmonic(period, float(cand["SNR"]), star_candidates):
             fails.append("harmonic")
-        if is_known_harmonic(period, known.get(tic)):
-            fails.append("known_harmonic")
         fold = fold_stats_for(tic, period, float(cand["phase"]), float(cand["tau"]), fold_cache)
         if fold_shape.fold_shape_rejects(fold):
             fails.append("fold_shape")
-        log10p = float(s.get("log10p", np.nan))
+        log10p = float(s.get("log10p_global", np.nan))
         if np.isfinite(log10p) and log10p >= SIGNIFICANCE_MAX:
             fails.append("significance")
         st = stellar.loc[tic] if tic in stellar.index else None
@@ -197,7 +207,7 @@ def build(apply):
             "Number of Valid Transits": int(cand["num_available_transits"]), "Has Visible TTVs": np.nan,
             "log10(p value)": np.nan, "μ(SNR | null)": np.nan, "σ(SNR | null)": np.nan, "sm_sf_grid": np.nan,
             "_cand_idx": idx, "Multiplicity": int(n_known.get(tic, 0) + n_new.get(tic, 0)),
-            "outlier_score": np.nan, "Interesting": bool(s["verdict"] == "convincing"), "ood_pvalue": np.nan,
+            "outlier_score": np.nan, "Interesting": bool(verdict == "convincing"), "ood_pvalue": np.nan,
             "Epoch": float(star["t_start"]) + float(cand["phase"]), "Duration": 2. * float(cand["tau"]),
             "err_Period": float(cand["err_period"]), "err_Epoch": float(cand["err_phase"]), "err_Duration": 2. * float(cand["err_tau"]),
             "Radius_planet_errp": float(cand["radiusp"]), "Radius_planet_errm": float(cand["radiusm"]),
@@ -205,7 +215,8 @@ def build(apply):
             "proposed_toi": np.nan, "nst_samples": np.nan,
             "fold_absorbed": fold.get("fold_absorbed", np.nan), "fold_absorbed_pure": fold.get("fold_absorbed_pure", np.nan),
             "fold_excess": fold.get("fold_excess", np.nan), "fold_duty": fold.get("fold_duty", np.nan),
-            "verdict": s["verdict"], "confidence": int(s["confidence"]), "note": s["note"]})
+            "verdict": verdict, "confidence": confidence, "note": note, "_run": s["run"]})
+    runs = pd.DataFrame(rows)["_run"]
     table = pd.DataFrame(rows)[COLUMNS]
     print(f"{len(table)} candidates on {table.TIC.nunique()} stars | passed_all_tests {int(table.passed_all_tests.sum())} | "
           f"verdicts {table.verdict.value_counts().to_dict()} | stellar params missing {int(table.Teff.isna().sum())}")
@@ -215,8 +226,8 @@ def build(apply):
         dst_root = os.path.join(HERE, "plots_new")
         if os.path.isdir(dst_root):
             shutil.rmtree(dst_root)
-        for _, r in table.iterrows():
-            _to_jpg(RUN + f"plots/{int(r.TIC)}/{int(r._cand_idx)}_0_pretty.png",
+        for run, (_, r) in zip(runs, table.iterrows()):
+            _to_jpg(SCRATCH + f"{run}/plots/{int(r.TIC)}/{int(r._cand_idx)}_0_pretty.png",
                     os.path.join(dst_root, str(int(r.TIC)), f"{int(r._cand_idx)}.jpg"))
         print(f"WROTE tois_new.csv and {len(table)} plots under plots_new/")
     else:
