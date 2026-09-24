@@ -19,6 +19,11 @@ note are columns, and the `Interesting` flag marks the candidates judged convinc
 **Show all found candidates** button reveals the rest, with the failed tests listed in
 the extended columns.
 
+The **Proposed TOI** continues the host's ExoFOP numbering (TOI 10.01 known, a new candidate becomes
+10.02), and **Habitable zone** says whether the candidate's instellation falls in the conservative or
+the optimistic habitable zone of [Kopparapu et al. (2014)](https://doi.org/10.1088/2041-8205/787/2/L29)
+(see the Overview).
+
 Use the **Interactive plot** button in the toolbar to explore the population in any
 pair of catalog quantities. Convincing candidates are drawn as orange stars, and
 clicking any point opens its diagnostic plots.

@@ -7,7 +7,8 @@ each carrying the verdict of its visual review (2026-09-15 for the first 83, 202
 Values come from the candidate's own batch0 row of its run (Period, Phase, Tau, SNR, errors, radius
 posterior, number of transits, diagnostics), the star's stellar parameters from TESS/tois_corrected.csv (else from
 the search sample's target-list table, which the catalog's values reproduce exactly),
-Epoch = t_start + Phase and Duration = 2 Tau as in merge_known_run.py, and the pass/fail flags from the
+Epoch = t_start + Phase and Duration = 2 Tau as in merge_known_run.py, `habitable_zone` (conservative /
+optimistic / empty, the Kopparapu et al. 2014 edges of habitable_zone.py, as in the HZ figure), and the pass/fail flags from the
 rules of recompute_failed_tests.py applied to the candidate's own diagnostics, plus four further
 tests (user decision 2026-09-15): `known_eb` (the star has an ExoFOP row with TESS disposition EB,
 or a false-positive row whose comment names an eclipsing binary, or is in KNOWN_EB_HOSTS),
@@ -39,6 +40,7 @@ VERDICTS = [HOME + "results/rerun_hier_top83_verdicts.csv"] + \
     [SCRATCH + f"tmp/hier_vi2/verdicts_{k}.csv" for k in range(9)]
 sys.path.insert(0, HERE)
 from merge_known_run import _to_jpg
+from habitable_zone import zone
 from flag_rules import (SPURIOUS_MAX, SNRD_MIN, SNR_OVERRIDE, NTRANSITS_MIN, SINGLE_TRANSIT_MIN,
                         SIGNIFICANCE_MAX, KNOWN_EB_HOSTS, EB_COMMENT, star_flags)
 sys.path.insert(0, HOME)
@@ -57,7 +59,7 @@ SHARP_LINE_REL_TOL = 0.02   # ... or 2 % of the harmonic's frequency, whichever 
 HARMONIC_RATIOS = np.array([2, 3, 4, 5, 6, 7, 8, 1/2, 1/3, 1/4, 1/5, 1/6, 1/7, 1/8])
 LOG_TOL = 0.02
 
-COLUMNS = ["TIC", "TOI", "Period", "Phase", "Tau", "SNR", "Radius_planet", "Mass", "Radius", "logg", "FEH", "Teff",
+COLUMNS = ["TIC", "TOI", "Period", "Phase", "Tau", "SNR", "Radius_planet", "Mass", "Radius", "logg", "FEH", "Teff", "habitable_zone",
            "Number of Valid Transits", "Has Visible TTVs", "log10(p value)", "μ(SNR | null)", "σ(SNR | null)", "sm_sf_grid",
            "_cand_idx", "Multiplicity", "outlier_score", "Interesting", "ood_pvalue", "Epoch", "Duration", "err_Period",
            "err_Epoch", "err_Duration", "Radius_planet_errp", "Radius_planet_errm", "passed_all_tests", "failed_tests",
@@ -208,6 +210,7 @@ def build(apply):
             "Mass": st["Mass"] if st is not None else np.nan, "Radius": st["Radius"] if st is not None else np.nan,
             "logg": st["logg"] if st is not None else np.nan, "FEH": st["FEH"] if st is not None else np.nan,
             "Teff": st["Teff"] if st is not None else np.nan,
+            "habitable_zone": zone(float(st["Radius"]), float(st["logg"]), float(st["Teff"]), float(cand["period"])) if st is not None else np.nan,
             "Number of Valid Transits": int(cand["num_available_transits"]), "Has Visible TTVs": np.nan,
             "log10(p value)": np.nan, "μ(SNR | null)": np.nan, "σ(SNR | null)": np.nan, "sm_sf_grid": np.nan,
             "_cand_idx": idx, "Multiplicity": int(n_known.get(tic, 0) + n_new.get(tic, 0)),

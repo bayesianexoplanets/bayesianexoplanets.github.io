@@ -14,33 +14,15 @@ https://github.com/stevepur/DR25-occurrence-public/blob/main/insolation/insolati
 """
 
 import os
+import sys
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(HERE, "habitable_zone.png")
-
-# Kopparapu (2014) HZ-flux polynomial.
-# i: 0 = Recent Venus, 1 = Runaway Greenhouse, 2 = Maximum Greenhouse, 3 = Early Mars.
-SEFFSUN = [1.776, 1.107, 0.356, 0.320]
-A = [2.136e-4, 1.332e-4, 6.171e-5, 5.547e-5]
-B = [2.533e-8, 1.580e-8, 1.698e-9, 1.526e-9]
-C = [-1.332e-11, -8.308e-12, -3.198e-12, -2.874e-12]
-D = [-3.097e-15, -1.931e-15, -5.575e-16, -5.011e-16]
-
-
-def hz_edge(teff, i):
-    Ts = teff - 5780.0
-    return SEFFSUN[i] + A[i] * Ts + B[i] * Ts**2 + C[i] * Ts**3 + D[i] * Ts**4
-
-
-def insolation(rstar, logg, teff, period):
-    """Bolometric flux in Earth units (S/S_earth)."""
-    mstar = 10.0**logg * rstar**2.0 / 10.0**4.437
-    semia = mstar ** (1.0 / 3.0) * (period / 365.25) ** (2.0 / 3.0)
-    lum = rstar**2.0 * (teff / 5778.0) ** 4.0
-    return lum / semia**2.0
+sys.path.insert(0, HERE)
+from habitable_zone import hz_edge, insolation      # Kopparapu (2014) edges, shared with build_new_candidates.py
 
 
 CMAP_VMIN, CMAP_VMAX = -3.0, 0.0  # log10(p-value) clipped to this range

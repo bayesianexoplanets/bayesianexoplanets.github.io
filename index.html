@@ -175,6 +175,7 @@ const PAGES = [
     colOverrides: { TOI: { visible: false } },
     extraColumns: [
       { title: 'Proposed TOI', field: 'proposed_toi', sorter: 'number', hozAlign: 'right', width: 110, formatter: fmtTOI, _after: 'TIC' },
+      { title: 'Habitable zone', field: 'habitable_zone', sorter: 'string', hozAlign: 'left', width: 125, _after: 'Radius_planet' },
     ],
     plot:  d => `plots_new/${d.TIC}/${d._cand_idx}.jpg?v=${PLOT_VERSION}`,
     ptitle:d => `TIC ${d.TIC} · proposed TOI ${d.proposed_toi != null ? Number(d.proposed_toi).toFixed(2) : ''} · P=${(+d.Period).toFixed(4)} d, Epoch=${(+d.Epoch).toFixed(4)} BTJD, Dur=${(+d.Duration).toFixed(4)} d · SNR=${(+d.SNR).toFixed(1)}` },
@@ -229,7 +230,7 @@ const COLUMNS = [
 // bump when figures are replaced under unchanged file names, so browsers and the Pages CDN reload them
 const PLOT_VERSION = '20260924a';
 
-const TESS_DEFAULT_FIELDS = new Set(['TIC', 'TOI', 'proposed_toi', 'Period', 'SNR', 'Radius_planet', 'log10(p value)']);
+const TESS_DEFAULT_FIELDS = new Set(['TIC', 'TOI', 'proposed_toi', 'Period', 'SNR', 'Radius_planet', 'habitable_zone', 'log10(p value)']);
 
 function buildColumns(page) {
   const ovr = page.colOverrides || {};
