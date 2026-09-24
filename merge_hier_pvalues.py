@@ -38,9 +38,10 @@ def load_units(runs):
     tables = []
     for run in runs:
         outdir = f"/pscratch/sd/j/julius/exoprob/results/hierarchical_tess/{run.lower()}/"
-        units = pd.read_csv(outdir + "nst_fullrun.csv")                # unit, TIC, period_min, period_max, samples
+        units = pd.read_csv(outdir + "units.csv")                      # every null window, empty ones included
+        samples = pd.read_csv(outdir + "nst_fullrun.csv")[["unit", "samples"]]
         grid = pd.read_csv(outdir + "hier_grid.csv")[["unit", "sf_grid"]]
-        merged = units.merge(grid, on="unit", how="left")
+        merged = units.merge(samples, on="unit", how="left").merge(grid, on="unit", how="left")
         merged["unit"] = [f"{run}:{u}" for u in merged["unit"]]
         merged["run"] = run
         tables.append(merged)

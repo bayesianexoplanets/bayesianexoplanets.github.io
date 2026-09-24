@@ -68,7 +68,9 @@ def main(apply):
     exofop = pd.read_csv(HOME + "TESS/tois.csv")
 
     too_few = candidates.apply(lambda r: "ntransits" in tokens(r), axis=1)
-    promote = candidates[candidates.apply(lambda r: PROMOTE in tokens(r), axis=1) & ~too_few]
+    in_catalog = candidates.apply(lambda r: bool(np.any((website["TIC"] == r["TIC"])                 # never promote twice
+                                                        & (np.abs(website["Period"] / r["Period"] - 1.) < 1e-3))), axis=1)
+    promote = candidates[candidates.apply(lambda r: PROMOTE in tokens(r), axis=1) & ~too_few & ~in_catalog]
     drop = candidates[candidates.apply(lambda r: (any(t in tokens(r) for t in DROP_TOKENS) and PROMOTE not in tokens(r))
                                        or PROMOTE in tokens(r), axis=1).to_numpy() & ~candidates.index.isin(promote.index)]
     keep = candidates.drop(index=promote.index.union(drop.index))

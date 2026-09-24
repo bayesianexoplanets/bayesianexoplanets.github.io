@@ -5,7 +5,8 @@ p < 0.01, i.e. the local p times the star's number of period bins; vetting flags
 known periods and within-star duplicates removed), from Rerun_20260910 or NewRun_20260919 (`run`),
 each carrying the verdict of its visual review (2026-09-15 for the first 83, 2026-09-24 for the rest).
 Values come from the candidate's own batch0 row of its run (Period, Phase, Tau, SNR, errors, radius
-posterior, number of transits, diagnostics), the star's stellar parameters from TESS/tois_corrected.csv,
+posterior, number of transits, diagnostics), the star's stellar parameters from TESS/tois_corrected.csv (else from
+the search sample's target-list table, which the catalog's values reproduce exactly),
 Epoch = t_start + Phase and Duration = 2 Tau as in merge_known_run.py, and the pass/fail flags from the
 rules of recompute_failed_tests.py applied to the candidate's own diagnostics, plus four further
 tests (user decision 2026-09-15): `known_eb` (the star has an ExoFOP row with TESS disposition EB,
@@ -33,6 +34,7 @@ HERE = "/global/u2/j/julius/exoplanets/TESS corrected"
 HOME = "/global/u2/j/julius/exoplanets/"
 SCRATCH = "/pscratch/sd/j/julius/exoprob/"
 SELECTION = HOME + "results/rerun_hier_new_candidates_clean.csv"
+CTL = "/pscratch/sd/j/julius/Bulk Download/random_data.npy"   # the search sample's target-list stellar parameters
 VERDICTS = [HOME + "results/rerun_hier_top83_verdicts.csv"] + \
     [SCRATCH + f"tmp/hier_vi2/verdicts_{k}.csv" for k in range(9)]
 sys.path.insert(0, HERE)
@@ -168,6 +170,8 @@ def build(apply):
     verdicts = load_verdicts()
     catalog = pd.read_csv(HOME + "TESS/tois_corrected.csv", sep="\t")
     stellar = catalog.drop_duplicates("TIC").set_index("TIC")
+    ctl = pd.DataFrame(np.load(CTL, allow_pickle=True)).set_index("tessid")          # stars with no catalogued planet
+    ctl = ctl.rename(columns={"mass": "Mass", "rad": "Radius", "MH": "FEH"})
     n_known = catalog.groupby("TIC").size()
     n_new = selected.groupby("tic").size()
     exo = pd.read_csv(HOME + "TESS/tois.csv")
@@ -197,7 +201,7 @@ def build(apply):
         log10p = float(s.get("log10p_global", np.nan))
         if np.isfinite(log10p) and log10p >= SIGNIFICANCE_MAX:
             fails.append("significance")
-        st = stellar.loc[tic] if tic in stellar.index else None
+        st = stellar.loc[tic] if tic in stellar.index else (ctl.loc[tic] if tic in ctl.index else None)
         rows.append({
             "TIC": tic, "TOI": np.nan, "Period": float(cand["period"]), "Phase": float(cand["phase"]), "Tau": float(cand["tau"]),
             "SNR": float(cand["SNR"]), "Radius_planet": float(cand["radius"]),

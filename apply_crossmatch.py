@@ -69,9 +69,14 @@ def main(apply):
     print("cross-match status of the %d candidates: %s" % (len(candidates), candidates["_status"].value_counts().to_dict()))
 
     too_few = candidates["failed_tests"].fillna("").astype(str).str.split("|").apply(lambda t: "ntransits" in t)
-    promote = candidates[candidates["_status"].isin(PROMOTE) & ~too_few]
+    in_catalog = np.array([bool(np.any((website["TIC"] == t) & (np.abs(website["Period"] / p - 1.) < TOL)))
+                           for t, p in zip(candidates["TIC"], candidates["Period"])])      # never promote twice
+    promote = candidates[candidates["_status"].isin(PROMOTE) & ~too_few & ~in_catalog]
     drop = candidates[candidates["_status"].isin(DROP) | (candidates["_status"].isin(PROMOTE) & too_few)]
-    keep = candidates.drop(index=promote.index.union(drop.index))
+    already = candidates[in_catalog & ~candidates.index.isin(drop.index)]
+    keep = candidates.drop(index=promote.index.union(drop.index).union(already.index))
+    for _, c in already.iterrows():
+        print("  already TIC %-10d P=%9.5f SNR=%6.2f  in the catalog, not promoted again" % (int(c["TIC"]), c["Period"], c["SNR"]))
 
     rows, copies = [], []
     for _, c in promote.iterrows():
@@ -84,7 +89,8 @@ def main(apply):
         print("  promote TIC %-10d P=%9.5f SNR=%6.2f  %-16s %s" % (tic, c["Period"], c["SNR"], c["_status"], c["_name"]))
     for _, c in drop.iterrows():
         print("  drop    TIC %-10d P=%9.5f SNR=%6.2f  %-16s %s" % (int(c["TIC"]), c["Period"], c["SNR"], c["_status"], c["_name"]))
-    print("candidates %d -> promoted %d, dropped %d, kept %d" % (len(candidates), len(promote), len(drop), len(keep)))
+    print("candidates %d -> promoted %d, dropped %d, already in the catalog %d, kept %d"
+          % (len(candidates), len(promote), len(drop), len(already), len(keep)))
 
     if not apply:
         print("\nDRY RUN, pass --apply")

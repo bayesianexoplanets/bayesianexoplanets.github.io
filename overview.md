@@ -260,16 +260,20 @@ green) and *recent Venus* to *early Mars* for the optimistic zone (light green).
 
 ### TESS new candidates
 
-Markers are coloured by $\log_{10}(p)$, clipped to $[-3, 0]$; a dashed red ring
+Markers are coloured by the global $\log_{10}(p)$, clipped to $[-3, 0]$; a dashed red ring
 marks candidates that fail at least one vetting test.
 
 ![TESS candidates: insolation versus Teff diagram with HZ overlays](habitable_zone.png)
 
-None of the 83 found candidates ($p < 10^{-4}$; 42 pass every vetting test, 75
-have the stellar parameters needed for the diagram) falls inside the habitable
-zone: the list is dominated by short periods (median 3.9 d), where the
-period-local null test is most sensitive. For comparison, 19 of the 5 187 known TOIs lie in the optimistic
-zone (18 pass all vetting tests) and 12 in the conservative zone (all 12 pass).
+Of the 191 new candidates (global $p < 0.01$; 124 pass every vetting test, 188
+have the stellar parameters needed for the diagram), 8 fall inside the optimistic
+habitable zone and 6 of those inside the conservative one (gold stars). None of the
+8 passes every vetting test: at periods of 102 to 453 days all of them rest on fewer
+than three transits, and on visual inspection 7 are not convincing. The eighth,
+TIC 290777444, has a period of 364 days, suspiciously close to one year. The list
+as a whole is dominated by short periods (median 8.0 d). For comparison, 21 of the
+5 377 known TOIs with stellar parameters lie in the optimistic zone (19 pass all
+vetting tests) and 12 in the conservative zone (11 pass).
 
 ### Kepler candidates (Robnik et al. 2026)
 

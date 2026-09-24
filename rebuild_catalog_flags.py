@@ -29,8 +29,10 @@ EXO = HOME + "TESS/tois.csv"
 SUMMARY = HOME + "results/catalog_vetting_20260917.tsv"
 FALLBACK_SUMMARY = "/pscratch/sd/j/julius/exoprob/CatalogRun_20260917/known_vetting_summary.csv"
 
-MAX_MISSING = 40            # rows without a re-vetting row; above this the run is incomplete, so nothing is written.
-                            # 18 of these are promoted candidate rows, which the catalog re-vet never covered by construction
+MAX_MISSING = 40            # curated-catalog rows without a re-vetting row; above this the run is incomplete, so nothing is
+                            # written. Rows promoted from the candidate list are absent from the curated catalog, never
+                            # re-vetted by construction, and keep the candidate tests' flags: they do not count.
+CURATED = HOME + "TESS/tois_corrected.csv"
 MAX_CONFIRMED_FOLD = 0.02   # fold_shape may reject at most this fraction of the confirmed planets
 DIAGNOSTICS = ["spurious1", "snrd_pvalue", "num_available_transits", "single_transit_ratio",
                "window_ok", "fold_absorbed", "fold_applicable"]
@@ -95,8 +97,13 @@ def rebuild(summary_path=SUMMARY, apply=False):
         if rate > MAX_CONFIRMED_FOLD:
             raise SystemExit(f"fold_shape rejects more than {MAX_CONFIRMED_FOLD:.0%} of confirmed planets; not writing")
 
-    if len(missing) > MAX_MISSING:
-        raise SystemExit(f"{len(missing)} rows have no re-vetting row (limit {MAX_MISSING}); re-run those TICs first")
+    curated = pd.read_csv(CURATED, sep="\t")
+    curated_keys = set(zip(curated["TIC"].astype(int), curated["TOI"].astype(str)))
+    missing_curated = [k for k in missing if k in curated_keys]
+    print(f"  of the missing rows, {len(missing) - len(missing_curated)} are promoted candidate rows (keep their flags), "
+          f"{len(missing_curated)} are curated rows")
+    if len(missing_curated) > MAX_MISSING:
+        raise SystemExit(f"{len(missing_curated)} curated rows have no re-vetting row (limit {MAX_MISSING}); re-run those TICs first")
 
     if apply:
         website["failed_tests"] = np.where(new_failed == "", np.nan, new_failed)
