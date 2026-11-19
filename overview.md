@@ -1,27 +1,28 @@
-# Detection Pipeline Overview
+The catalogs on this site come from one search. It models each star's own
+variability, looks for transits with a matched filter, rejects instrumental false
+alarms, and gives every signal a significance measured against the noise of its own
+star. The method is described in
+[Robnik, Seljak, Jenkins & Bryson (2026)](https://arxiv.org/abs/2601.07465); this
+page is a summary.
 
-This page summarises the automated pipeline behind this catalog. It searches TESS
-(and Kepler) light curves for transiting exoplanets, rejects instrumental false
-alarms, and assigns each candidate a statistically calibrated significance. The
-full methodology is described in
-[Robnik, Seljak, Jenkins & Bryson (2026)](https://arxiv.org/abs/2601.07465).
-
----
-
-## Why is this hard?
-
-An Earth-sized planet in a habitable-zone orbit blocks only about 100 ppm of its
-star's light, that is 0.01 %, while the star itself typically varies by several times
-that amount. Each transit lasts a few hours out of an orbital period of hundreds
-of days, so even a multi-year baseline contains just a handful of events. And
-almost any instrumental artefact (a thermal transient, a pixel sensitivity drop,
-a cosmic-ray hit) can mimic a transit dip. A useful pipeline must therefore do
-two things at once: detect real signals all the way down at the noise floor, and
-reject the flood of false alarms it inevitably encounters there.
+<div id="catalog-cards"></div>
 
 ---
 
-## Data model
+## Why this is hard
+
+An Earth-sized planet in a habitable-zone orbit blocks about 100 ppm of its star's
+light (0.01 %), while the star itself typically varies by several times that. Each
+transit lasts a few hours out of an orbital period of hundreds of days, so even a
+multi-year baseline holds only a handful of events. And almost any instrumental
+artefact (a thermal transient, a drop in pixel sensitivity, a cosmic-ray hit) can
+look like a transit. A useful search therefore has to do two things at once: find
+real signals down at the noise floor, and reject the many false alarms it meets
+there.
+
+---
+
+## The model
 
 We model the observed flux as the sum of three components,
 
@@ -29,27 +30,26 @@ $$
 F(t) = F_\mathrm{GP}(t) + \epsilon(t) + \Delta(t),
 $$
 
-where $F_\mathrm{GP}$ is the stellar variability, a correlated Gaussian process,
-$\epsilon$ is uncorrelated noise whose variance tracks the local flux level, and
+where $F_\mathrm{GP}$ is the stellar variability (a correlated Gaussian process),
+$\epsilon$ is uncorrelated noise whose variance follows the local flux level, and
 $\Delta$ is the transit signal we are looking for.
 
-The key simplification happens in Fourier space: there the stellar variability is
-fully characterised by its power spectral density $P_k$. Once $P_k$ is known, the
-data can be *whitened*, divided through by the noise spectrum, after which the
-transit appears as a fixed template in approximately white noise, the textbook
-setting for a matched filter.
+The key simplification happens in Fourier space, where the stellar variability is
+fully described by its power spectral density $P_k$. Once $P_k$ is known the data
+can be *whitened* (divided by the noise spectrum). The transit is then a fixed
+template in approximately white noise, which is the textbook setting for a matched
+filter.
 
-We estimate $P_k$ directly from the data by smoothing the periodogram with an
-adaptive window that widens toward high frequencies, allowing for mild
-non-stationarity. Because stellar variability is broad and smooth in the spectral
-domain while a transit is highly localised in time, this estimate is barely
-perturbed by the presence of a planet.
+We estimate $P_k$ from the data themselves, by smoothing the periodogram with a
+window that widens toward high frequencies and so allows for mild non-stationarity.
+Stellar variability is broad and smooth in frequency, while a transit is sharply
+localised in time, so a planet barely changes this estimate.
 
 ---
 
-## Pipeline overview
+## Three stages
 
-The pipeline runs in three sequential stages:
+The pipeline runs in three stages, one after the other:
 
 ![Pipeline stages: preprocessing, detection, vetting](pipeline_overview.png)
 
@@ -57,8 +57,8 @@ The pipeline runs in three sequential stages:
 
 ## Stage 1: Preprocessing
 
-Real light curves violate the Gaussian model in several distinct ways, and each
-violation gets its own treatment before the search begins.
+Real light curves break the Gaussian model in several distinct ways. Each one is
+treated before the search begins.
 
 **Outlier Gaussianization.** Isolated outliers (saturation spikes, bright
 pixels) would dominate a matched filter if left in place. We apply a monotonic
@@ -122,8 +122,8 @@ signal, re-search, and repeat until nothing exceeds the threshold.
 
 ## Stage 3: Vetting
 
-A search that reaches the noise floor necessarily turns up instrumental false
-alarms. Three complementary tests reject them.
+A search that reaches the noise floor will turn up instrumental false alarms.
+Three complementary tests reject them.
 
 **Individual-transit glitch test.** Each transit event is compared against a
 localized-defect hypothesis: does an instrumental-artefact model fit the dip
@@ -143,13 +143,13 @@ events, the signature of an unmodeled systematic. Candidates with p-value
 
 ---
 
-## Significance: null-simulation tests (NSTs)
+## Significance: null searches
 
-The matched-filter SNR of pure noise depends on each star's variability in a
-complicated way, so no universal SNR threshold is reliable. Instead we measure
-each star's own noise floor empirically with null searches: the pipeline is run
-again with perturbed search grids (different random seeds), so that it can only
-find noise peaks, never a coherent planet. Because the noise floor also depends
+How high the matched-filter SNR of pure noise reaches depends on each star's
+variability in a complicated way, so no single SNR threshold is reliable. We
+therefore measure each star's own noise floor with null searches (null-simulation
+tests, NSTs): the pipeline is run again with perturbed search grids (different
+random seeds), so that it can only find noise peaks, never a coherent planet. Because the noise floor also depends
 on the period range (short periods offer far more trial phases than long ones),
 the null searches are **period-local**: for each star we run a hundred of them in
 the period bin of every catalogued planet and in the bins of its three strongest
@@ -199,11 +199,11 @@ $$
 p = \mathbb{E}_{\text{posterior}}\!\big[\,\mathrm{SF}(\mathrm{SNR}_\mathrm{cand} \mid c,k,\lambda)\,\big] .
 $$
 
-Marginalising, rather than plugging in a single best-fit $(c,k,\lambda)$, is
-essential: it fattens the tail to reflect that a finite number of samples cannot
-fully pin down the distribution, yielding a properly conservative p-value. (Click
-any row in the catalog tables to see this survival function, the NST samples, and
-where the candidate falls.)
+Marginalising, rather than plugging in one best-fit $(c,k,\lambda)$, matters: it
+fattens the tail to reflect that a finite number of samples cannot fully pin down
+the distribution, and so gives a properly conservative p-value. Click any row of the
+planet tables to see this survival function, the null-search maxima, and where the
+signal falls.
 
 **Are ten NSTs enough, and does the prior help?** On synthetic data we compare
 three estimators of the true p-value: the Gaussian, an unregularised
@@ -229,15 +229,45 @@ which bounds the chance of such a peak anywhere in the star's search range. A
 signal counts as significant at $p_\mathrm{global} < 0.01$; the local value and $N$
 are listed alongside it.
 
-**How significant are the candidates?** Comparing the $-\log_{10}(p)$
-distributions of known TOIs and our new candidates (larger means more
-significant):
+**How significant are the new candidates?** The $-\log_{10}(p)$ distributions of
+known TOIs and of our new candidates (larger means more significant):
 
 ![p-value distribution of known TOIs vs new candidates](overview_pvalue_dist.png)
 
-The new candidates are systematically less significant than confirmed TOIs,
-as expected for a population living near the detection limit, but they sit
-clearly above the per-star noise floor.
+The new candidates are systematically less significant than the known TOIs, as
+expected for signals near the detection limit, but they sit clearly above the noise
+floor of their stars.
+
+---
+
+## Known planets and binaries: one verified list
+
+A blind search first has to set aside what is already known. We merged the TESS
+Objects of Interest, the TESS eclipsing-binary catalog
+([Prša et al. 2022](https://doi.org/10.3847/1538-4365/ac324a)) and the transiting
+planets of the NASA Exoplanet Archive into one list per star, and then checked the
+entries against the light curves in two ways.
+
+**Is the ephemeris right?** For each object the light curve was folded sector by
+sector at every catalogued ephemeris (ours, ExoFOP's, the published ones) and the
+versions were compared side by side: the right ephemeris keeps the dip at the same
+place in every sector, a wrong period lets it drift. The inspection was done by AI
+reviewers reading these figures, with hidden control rows in every batch (all 120
+controls of the last two rounds kept their class, and the one period that changed
+was a genuine error in our catalog). A period fitted to a few sectors can drift by
+hours over several years: where our own fit disagreed with ExoFOP or the literature,
+the other value was right in 289 of 312 cases. Entries with no visible signal keep
+their catalog values.
+
+**Planet or binary?** For the planet candidates of our catalog, the folded light
+curve was compared under three families of scenarios: a planet on the target star,
+a planet on another star in the aperture, and an eclipsing binary. A candidate whose
+binary scenarios exceed 50 % probability is listed with the eclipsing binaries; a
+planet on a neighbouring star remains a candidate. Confirmed planets and known
+binaries keep their class.
+
+The result is the two TESS catalogs of this site: the planets and candidates, and
+the eclipsing binaries.
 
 ---
 
@@ -265,15 +295,15 @@ marks candidates that fail at least one vetting test.
 
 ![TESS candidates: insolation versus Teff diagram with HZ overlays](habitable_zone.png)
 
-Of the 190 new candidates (global $p < 0.01$; 124 pass every vetting test, 187
-have the stellar parameters needed for the diagram), 7 fall inside the optimistic
-habitable zone and 5 of those inside the conservative one (gold stars). None of the
-7 passes every vetting test: at periods of 102 to 453 days all of them rest on fewer
-than three transits, and on visual inspection 6 are not convincing. The eighth,
+Of the 189 new candidates (global $p < 0.01$; 124 pass every vetting test, 186
+have the stellar parameters needed for the diagram), 6 fall inside the optimistic
+habitable zone and 4 of those inside the conservative one (gold stars). None of the
+6 passes every vetting test: at periods of 57 to 453 days all of them rest on fewer
+than three transits, and on visual inspection 5 are not convincing. The sixth,
 TIC 290777444, has a period of 364 days, suspiciously close to one year. The list
-as a whole is dominated by short periods (median 8.0 d). For comparison, 21 of the
-5 377 known TOIs with stellar parameters lie in the optimistic zone (19 pass all
-vetting tests) and 12 in the conservative zone (11 pass).
+as a whole is dominated by short periods (median 8.0 d). For comparison, 18 of the
+4 644 catalog planets and candidates with stellar parameters lie in the optimistic
+zone (16 pass all vetting tests) and 10 in the conservative zone (9 pass).
 
 ### Kepler candidates (Robnik et al. 2026)
 

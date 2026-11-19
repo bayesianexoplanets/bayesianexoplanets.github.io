@@ -3,7 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>TESS Exoplanet Catalog</title>
+<title>Bayesian Exoplanets</title>
+<meta name="description" content="Transit search in TESS and Kepler light curves: verified catalogs of planets, planet candidates and eclipsing binaries, with a significance for every signal.">
 <link href="https://unpkg.com/tabulator-tables@6.3.1/dist/css/tabulator.min.css" rel="stylesheet">
 <link href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" rel="stylesheet">
 <script src="https://unpkg.com/tabulator-tables@6.3.1/dist/js/tabulator.min.js"></script>
@@ -11,91 +12,183 @@
 <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
 <style>
-  :root { --bg:#fafafa; --panel:#fff; --border:#ddd; --muted:#6b7280; --accent:#2563eb; }
+  :root { --bg:#f5f6f8; --panel:#ffffff; --ink:#0f172a; --text:#1f2937; --muted:#64748b; --border:#e2e8f0;
+          --navy:#16213e; --navy-soft:#24345f; --accent:#1d4ed8; --accent-soft:#e8eefc; --red:#b42318; --green:#15803d;
+          --radius:10px; --shadow:0 1px 2px rgba(15,23,42,.05), 0 6px 20px rgba(15,23,42,.05);
+          --sans:-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+          --serif:Charter, "Iowan Old Style", "Palatino Linotype", Georgia, "DejaVu Serif", serif; }
   * { box-sizing: border-box; }
-  body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: #111; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; font-family: var(--sans); background: var(--bg); color: var(--text); -webkit-font-smoothing: antialiased; }
+  a { color: var(--accent); }
   .container { display: flex; flex-direction: column; min-height: 100vh; }
-  header { padding: 12px 20px; background: #111827; color: white; border-bottom: 1px solid #000;
-           display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap;
-           position: sticky; top: 0; z-index: 50; }
-  header h1 { margin: 0; font-size: 1.15rem; font-weight: 600; letter-spacing: 0.01em; }
-  nav { display: flex; gap: 18px; flex-wrap: wrap; }
-  nav a { color: #cbd5e1; cursor: pointer; font-size: 0.88rem; text-decoration: none; padding: 2px 0; border-bottom: 2px solid transparent; white-space: nowrap; }
-  nav a:hover { color: #fff; }
-  nav a.active { color: #fff; font-weight: 600; border-bottom-color: #fff; }
-  #pagetext { flex: 0 0 auto; padding: 14px 24px; background: #fff;
-              border-bottom: 1px solid var(--border); font-size: 0.95rem; line-height: 1.6; color: #1f2937; }
-  #pagetext .md { max-width: min(78vw, 1280px); margin: 0 auto; }
-  @media (max-width: 900px) { #pagetext .md { max-width: 100%; } }
+
+  /* header */
+  header { background: var(--navy); color: #fff; position: sticky; top: 0; z-index: 50; box-shadow: 0 1px 0 rgba(0,0,0,.25); }
+  .bar { max-width: 1500px; margin: 0 auto; padding: 10px 24px; display: flex; align-items: center; justify-content: space-between; gap: 12px 28px; flex-wrap: wrap; }
+  .brand { display: flex; align-items: baseline; gap: 12px; text-decoration: none; color: #fff; }
+  .brand b { font-size: 1.2rem; font-weight: 650; letter-spacing: .01em; }
+  .brand span { font-size: .88rem; color: #a5b4d4; }
+  nav { display: flex; align-items: center; gap: 4px 6px; flex-wrap: wrap; }
+  nav .group { font-size: .74rem; letter-spacing: .09em; text-transform: uppercase; color: #8ea0c9; margin: 0 2px 0 14px; }
+  nav a { color: #d7deef; font-size: .95rem; text-decoration: none; padding: 5px 10px; border-radius: 6px; white-space: nowrap; }
+  nav a:hover { background: rgba(255,255,255,.09); color: #fff; }
+  nav a.active { background: #fff; color: var(--navy); font-weight: 600; }
+
+  /* page head */
+  #page-head { background: var(--panel); border-bottom: 1px solid var(--border); }
+  #page-head .inner { max-width: 1500px; margin: 0 auto; padding: 22px 24px 18px; }
+  #page-title { margin: 0; font-size: 1.85rem; font-weight: 680; color: var(--ink); letter-spacing: -.01em; }
+  #page-lede { margin: 6px 0 0; max-width: 78ch; color: #475569; font-size: 1.1rem; line-height: 1.55; }
+  #page-lede:empty { display: none; }
+  #stats { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
+  #stats:empty { display: none; }
+  .stat { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 7px 12px; min-width: 104px; }
+  .stat b { display: block; font-size: 1.3rem; color: var(--ink); font-weight: 650; font-variant-numeric: tabular-nums; }
+  .stat span { font-size: .86rem; color: var(--muted); }
+
+  /* text */
+  #pagetext { padding: 0 24px; }
   #pagetext.empty { display: none; }
-  #pagetext h1 { font-size: 1.5rem; margin: 0.2em 0 0.4em; }
-  #pagetext h2 { font-size: 1.2rem; margin: 0.8em 0 0.3em; }
-  #pagetext h3 { font-size: 1.05rem; margin: 0.7em 0 0.3em; }
-  #pagetext p { margin: 0.5em 0; }
+  #pagetext .md { font-family: var(--serif); font-size: 1.14rem; line-height: 1.68; color: #1f2937; }
+  .text-only #pagetext .md { max-width: 860px; margin: 26px auto 40px; background: var(--panel); border: 1px solid var(--border);
+                             border-radius: var(--radius); box-shadow: var(--shadow); padding: 30px 44px 36px; }
+  details.about { max-width: 1500px; margin: 14px auto 0; background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); }
+  details.about > summary { cursor: pointer; padding: 10px 16px; font-family: var(--sans); font-size: 1rem; font-weight: 600; color: var(--navy-soft); list-style: none; }
+  details.about > summary::-webkit-details-marker { display: none; }
+  details.about > summary::before { content: '+'; display: inline-block; width: 1.1em; color: var(--muted); }
+  details.about[open] > summary::before { content: '\2212'; }
+  details.about > .md { max-width: 100ch; padding: 0 20px 14px 34px; font-size: 1.06rem; }
+  #pagetext h1, #pagetext h2, #pagetext h3 { font-family: var(--sans); color: var(--ink); line-height: 1.25; }
+  #pagetext h1 { font-size: 1.55rem; margin: .2em 0 .5em; }
+  #pagetext h2 { font-size: 1.22rem; margin: 1.5em 0 .4em; padding-top: .2em; }
+  #pagetext h3 { font-size: 1.04rem; margin: 1.2em 0 .3em; }
+  #pagetext p { margin: .7em 0; }
+  #pagetext hr { border: 0; border-top: 1px solid var(--border); margin: 1.8em 0; }
   #pagetext a { color: var(--accent); text-decoration: none; }
   #pagetext a:hover { text-decoration: underline; }
-  #pagetext code { background: #f1f5f9; padding: 1px 5px; border-radius: 3px; font-size: 0.88em; }
+  #pagetext code { font-size: .86em; background: #f1f5f9; padding: 1px 5px; border-radius: 4px; }
   #pagetext pre { background: #f1f5f9; padding: 10px 12px; border-radius: 6px; overflow: auto; }
-  #pagetext img { max-width: 100%; }
-  #pagetext table { border-collapse: collapse; }
-  #pagetext th, #pagetext td { border: 1px solid var(--border); padding: 4px 8px; }
+  #pagetext figure { margin: 1.4em 0; text-align: center; }
+  #pagetext figure img { max-width: 100%; border: 1px solid var(--border); border-radius: 6px; background: #fff; }
+  #pagetext figcaption { font-family: var(--sans); font-size: .92rem; color: var(--muted); margin-top: 6px; }
+  #pagetext table { border-collapse: collapse; font-family: var(--sans); font-size: .98rem; margin: 1em 0; }
+  #pagetext th, #pagetext td { border-bottom: 1px solid var(--border); padding: 6px 12px; text-align: left; }
+  #pagetext th { color: var(--muted); font-weight: 600; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 14px; margin: 1.2em 0 1.6em; font-family: var(--sans); }
+  .card { display: block; text-decoration: none !important; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; color: var(--text) !important; transition: border-color .15s, box-shadow .15s; }
+  .card:hover { border-color: #b6c4e8; box-shadow: var(--shadow); }
+  .card b { display: block; font-size: 1.5rem; color: var(--ink); font-variant-numeric: tabular-nums; }
+  .card strong { display: block; font-size: 1.05rem; color: var(--navy-soft); margin: 2px 0 4px; }
+  .card span { font-size: .93rem; color: var(--muted); line-height: 1.45; display: block; }
+
   /* toolbar */
-  #toolbar { padding: 8px 20px; background: #f3f4f6; border-bottom: 1px solid var(--border); display: flex; gap: 12px; align-items: center; font-size: 0.85rem; }
-  #toolbar input { padding: 4px 10px; font-size: 0.85rem; width: 280px; border: 1px solid var(--border); border-radius: 4px; }
-  #toolbar .hint { color: var(--muted); }
-  #download-btn, #ood-toggle, #extended-toggle, #passing-toggle { padding: 4px 12px; font-size: 0.82rem; border: 1px solid var(--border); border-radius: 4px; background: #fff; cursor: pointer; color: #374151; white-space: nowrap; }
-  #download-btn:hover, #ood-toggle:hover, #extended-toggle:hover, #passing-toggle:hover { background: #e5e7eb; }
-  #ood-toggle.open, #extended-toggle.open, #passing-toggle.open { background: #dbeafe; border-color: #93c5fd; color: #1d4ed8; }
+  #toolbar { max-width: 1500px; width: 100%; margin: 14px auto 0; padding: 0 24px; display: flex; gap: 8px 10px; align-items: center; flex-wrap: wrap; font-size: .95rem; }
+  #toolbar input { padding: 8px 12px; font-size: .98rem; width: 270px; border: 1px solid #cbd5e1; border-radius: 8px; background: #fff; }
+  #toolbar input:focus { outline: 2px solid #bfd0fb; border-color: var(--accent); }
+  #toolbar .hint { color: var(--muted); margin-left: auto; font-size: .9rem; }
+  #rowcount { color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  #download-btn, #ood-toggle, #extended-toggle, #passing-toggle, #tess-toggle, .dl-btn {
+    padding: 7px 13px; font-size: .93rem; border: 1px solid #cbd5e1; border-radius: 8px; background: #fff; cursor: pointer; color: #334155;
+    white-space: nowrap; text-decoration: none; display: inline-flex; align-items: center; font-family: var(--sans); }
+  #download-btn:hover, #ood-toggle:hover, #extended-toggle:hover, #passing-toggle:hover, #tess-toggle:hover, .dl-btn:hover { background: #f1f5f9; border-color: #94a3b8; }
+  #ood-toggle.open, #extended-toggle.open, #passing-toggle.open { background: var(--accent-soft); border-color: #a9bdf5; color: var(--accent); }
+  #tess-toggle::before { content: ''; width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid #94a3b8; margin-right: 7px; box-sizing: border-box; }
+  #tess-toggle[aria-pressed="true"] { background: var(--accent-soft); border-color: #a9bdf5; color: var(--accent); }
+  #tess-toggle[aria-pressed="true"]::before { background: var(--accent); border-color: var(--accent); }
   #downloads { display: flex; gap: 8px; }
-  .dl-btn { display: inline-flex; align-items: center; padding: 3px 10px; font-size: 0.82rem; border: 1px solid var(--border); border-radius: 4px; background: #fff; color: #374151; text-decoration: none; white-space: nowrap; }
-  .dl-btn:hover { background: #f3f4f6; color: #111; border-color: #9ca3af; }
-  /* table + side-by-side OoD chart: sits in the page flow right under the text;
-     fixed height so Tabulator can virtualize rows, the page itself scrolls freely */
-  #content-row { display: flex; height: 80vh; min-height: 420px; overflow: hidden; }
-  #table-wrap { flex: 1 1 auto; min-width: 0; padding: 0 20px; overflow: hidden; }
-  #ood-panel { flex: 0 0 38%; min-width: 360px; max-width: 600px; display: none; flex-direction: column;
-               border-left: 1px solid var(--border); background: #f9fafb; padding: 12px 16px; overflow: auto; }
-  #ood-controls { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; font-size: 0.85rem; margin-bottom: 8px; }
-  #ood-controls label { color: #374151; display: flex; align-items: center; gap: 5px; }
-  #ood-controls select { padding: 3px 8px; font-size: 0.85rem; border: 1px solid var(--border); border-radius: 4px; background: #fff; max-width: 160px; }
-  #ood-controls select:disabled { background: #f3f4f6; color: var(--muted); }
-  #ood-panel .hint { color: var(--muted); font-size: 0.8rem; margin-top: 6px; }
-  #ood-chart-wrap { flex: 1 1 auto; min-height: 300px; position: relative; }
+
+  /* table and chart */
+  #content-row { max-width: 1500px; width: 100%; margin: 10px auto 0; padding: 0 24px; display: flex; gap: 14px; height: 74vh; min-height: 420px; }
+  #table-wrap { flex: 1 1 auto; min-width: 0; background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
   #table { height: 100%; }
-  #plot-panel { flex: 0 0 auto; position: relative; padding: 10px 20px 16px; background: var(--panel); border-top: 1px solid var(--border); display: none; }
+  #ood-panel { flex: 0 0 38%; min-width: 360px; max-width: 600px; display: none; flex-direction: column; background: var(--panel);
+               border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 12px 16px; overflow: auto; }
+  #ood-controls { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; font-size: .95rem; margin-bottom: 8px; }
+  #ood-controls label { color: #374151; display: flex; align-items: center; gap: 5px; }
+  #ood-controls select { padding: 3px 8px; font-size: .85rem; border: 1px solid var(--border); border-radius: 6px; background: #fff; max-width: 160px; }
+  #ood-controls select:disabled { background: #f3f4f6; color: var(--muted); }
+  #ood-panel .hint { color: var(--muted); font-size: .8rem; margin-top: 6px; }
+  #ood-chart-wrap { flex: 1 1 auto; min-height: 300px; position: relative; }
+  .tabulator { font-size: .95rem; border: 0; background: var(--panel); font-family: var(--sans); }
+  .tabulator .tabulator-header { background: #f8fafc; border-bottom: 1px solid var(--border); font-weight: 600; color: #334155; }
+  .tabulator .tabulator-header .tabulator-col { background: #f8fafc; border-right: 1px solid #eef2f7; }
+  .tabulator .tabulator-header .tabulator-col .tabulator-header-filter input, .tabulator .tabulator-header .tabulator-col .tabulator-header-filter select { font-size: .78rem; padding: 2px 4px; border: 1px solid #cbd5e1; border-radius: 4px; }
+  .tabulator-row { border-bottom: 1px solid #f1f5f9; }
+  .tabulator-row .tabulator-cell { border-right: 0; padding: 7px 9px; font-variant-numeric: tabular-nums; }
+  .tabulator-row.tabulator-row-even { background: #fff; }
+  .tabulator-row.tabulator-selected { background: var(--accent-soft) !important; }
+  .tabulator-row.tabulator-selectable:hover { background: #f1f5ff !important; cursor: pointer; }
+  .tabulator-cell .pm { color: var(--muted); font-size: .82em; white-space: nowrap; }
+  .tabulator-cell .pm sup, .tabulator-cell .pm sub { font-size: .92em; line-height: 0; }
+  .tabulator-cell .ok { color: var(--green); font-weight: 600; }
+  .tabulator-cell .no { color: var(--red); font-weight: 600; }
+  .fail-badge { background: #fee2e2; color: var(--red); border-radius: 4px; padding: 1px 6px; font-size: .78em; white-space: nowrap; margin-right: 3px; display: inline-block; }
+  .tag { border-radius: 999px; padding: 1px 9px; font-size: .78em; white-space: nowrap; display: inline-block; border: 1px solid transparent; }
+  .tag.planet { background: #e7f6ec; color: #116932; border-color: #bfe5cb; }
+  .tag.candidate { background: #eef2ff; color: #2a3f9d; border-color: #cdd8fb; }
+  .tag.clear { background: #e7f6ec; color: #116932; }
+  .tag.weak { background: #fff4d6; color: #8a5a00; }
+  .tag.none { background: #f1f5f9; color: #475569; }
+  .tag.analysis { background: #eef2ff; color: #2a3f9d; }
+
+  /* figure panel */
+  #plot-panel { max-width: 1500px; width: 100%; margin: 14px auto 0; padding: 0 24px; display: none; }
   #plot-panel.visible { display: block; }
-  #plot-panel h2 { margin: 0 32px 6px 0; font-size: 0.95rem; font-weight: 500; color: #374151; }
-  #plot-close { position: absolute; top: 6px; right: 10px; width: 28px; height: 28px; line-height: 24px; text-align: center; border: 1px solid var(--border); border-radius: 50%; background: #fff; color: #4b5563; cursor: pointer; font-size: 1rem; padding: 0; }
-  #plot-close:hover { background: #fee2e2; color: #b91c1c; border-color: #fca5a5; }
-  #plot-wrap { display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap; }
-  #plot { height: 380px; width: auto; max-width: 100%; border: 1px solid var(--border); background: #fff; }
-  #nst  { height: 380px; aspect-ratio: 13 / 8; border: 1px solid var(--border); background: #fff; }
-  .tabulator-row.tabulator-selected { background: #dbeafe !important; }
-  .tabulator-row.tabulator-selectable:hover { background: #e0e7ff !important; cursor: pointer; }
-  .tabulator { font-size: 0.82rem; }
-  .tabulator-cell .pm { color: var(--muted); font-size: 0.82em; white-space: nowrap; }
-  .tabulator-cell .pm sup, .tabulator-cell .pm sub { font-size: 0.92em; line-height: 0; }
-  .tabulator-cell .ok { color: #15803d; font-weight: 600; }
-  .tabulator-cell .no { color: #b91c1c; font-weight: 600; }
-  .tabulator .tabulator-header { background: #f9fafb; font-weight: 500; }
-  .fail-badge { background: #fee2e2; color: #b91c1c; border-radius: 3px; padding: 1px 5px; font-size: 0.78em; white-space: nowrap; margin-right: 2px; display: inline-block; }
+  #plot-card { position: relative; background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 16px 20px 18px; }
+  #plot-title { margin: 0 40px 4px 0; font-size: 1.25rem; font-weight: 650; color: var(--ink); }
+  #plot-facts { display: flex; gap: 6px 8px; flex-wrap: wrap; margin: 6px 0 12px; }
+  .fact { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 4px 10px; font-size: .93rem; color: #334155; font-variant-numeric: tabular-nums; }
+  .fact i { font-style: normal; color: var(--muted); margin-right: 5px; }
+  #plot-note { margin: 0 0 12px; padding: 8px 12px; background: #fff8e6; border: 1px solid #f3dfa3; border-radius: 8px; font-size: .95rem; color: #6b4e00; }
+  #plot-note:empty { display: none; }
+  #plot-close { position: absolute; top: 12px; right: 14px; width: 30px; height: 30px; border: 1px solid var(--border); border-radius: 50%; background: #fff; color: #475569; cursor: pointer; font-size: 1.05rem; padding: 0; line-height: 26px; }
+  #plot-close:hover { background: #fee2e2; color: var(--red); border-color: #fca5a5; }
+  #plot-wrap { display: flex; gap: 18px; align-items: flex-start; flex-wrap: wrap; }
+  #plot-wrap figure { margin: 0; }
+  #plot-wrap figcaption { font-size: .9rem; color: var(--muted); margin-top: 6px; max-width: 620px; line-height: 1.45; }
+  #plot { height: 470px; width: auto; max-width: 100%; border: 1px solid var(--border); border-radius: 6px; background: #fff; display: block; }
+  #nst  { height: 470px; aspect-ratio: 13 / 10; max-width: 100%; border: 1px solid var(--border); border-radius: 6px; background: #fff; display: block; }
+  #plot-missing { height: 180px; width: 420px; max-width: 100%; display: none; align-items: center; justify-content: center; text-align: center; padding: 0 24px;
+                  border: 1px dashed #cbd5e1; border-radius: 6px; color: var(--muted); font-size: .88rem; background: var(--bg); }
+
+  footer { margin-top: auto; }
+  footer .inner { max-width: 1500px; margin: 28px auto 0; padding: 16px 24px 24px; border-top: 1px solid var(--border); color: var(--muted); font-size: .9rem; line-height: 1.6; }
+  footer a { color: #475569; }
+  @media (max-width: 800px) {
+    .bar, #page-head .inner, #toolbar, #content-row, #plot-panel, #pagetext { padding-left: 14px; padding-right: 14px; }
+    .text-only #pagetext .md { padding: 20px 18px 24px; margin-top: 14px; }
+    #toolbar .hint { margin-left: 0; width: 100%; }
+    #toolbar input { width: 100%; }
+    #plot, #nst { height: auto; width: 100%; }
+    nav .group { margin-left: 6px; }
+  }
 </style>
 </head>
 <body>
 <div class="container" id="container">
   <header>
-    <h1 id="page-title">TESS Exoplanet Catalog</h1>
-    <nav id="nav"></nav>
+    <div class="bar">
+      <a class="brand" href="#overview"><b>Bayesian Exoplanets</b><span>transit search in TESS and Kepler</span></a>
+      <nav id="nav" aria-label="Pages"></nav>
+    </div>
   </header>
+  <section id="page-head"><div class="inner">
+    <h1 id="page-title"></h1>
+    <p id="page-lede"></p>
+    <div id="stats"></div>
+  </div></section>
   <div id="pagetext"></div>
   <div id="toolbar" style="display:none">
-    <input id="filter" placeholder="Filter TIC or TOI&hellip;" autocomplete="off">
-    <button id="download-btn" type="button" style="display:none">&#8595; CSV</button>
-    <button id="ood-toggle" type="button" style="display:none">Interactive plot</button>
-    <button id="extended-toggle" type="button" style="display:none">Show extended catalog</button>
+    <input id="filter" type="search" placeholder="Filter TIC or TOI&hellip;" autocomplete="off" aria-label="Filter the table">
+    <span id="rowcount"></span>
+    <button id="tess-toggle" type="button" aria-pressed="true" style="display:none">TESS discoveries</button>
     <button id="passing-toggle" type="button" style="display:none">Show all found candidates</button>
+    <button id="extended-toggle" type="button" style="display:none">Show extended catalog</button>
+    <button id="ood-toggle" type="button" style="display:none">Interactive plot</button>
+    <button id="download-btn" type="button" style="display:none">&#8595; Download CSV</button>
     <div id="downloads"></div>
-    <span class="hint">Click any row to see its diagnostic plots &middot; Click column headers to sort</span>
+    <span class="hint">Click a row for its figures &middot; click a column header to sort</span>
   </div>
   <div id="content-row" style="display:none">
     <div id="table-wrap"><div id="table"></div></div>
@@ -111,10 +204,26 @@
     </div>
   </div>
   <div id="plot-panel">
-    <button id="plot-close" type="button" aria-label="Close plot">&times;</button>
-    <h2 id="plot-title"></h2>
-    <div id="plot-wrap"><img id="plot" alt=""><canvas id="nst"></canvas></div>
+    <div id="plot-card">
+      <button id="plot-close" type="button" aria-label="Close the figures">&times;</button>
+      <h2 id="plot-title"></h2>
+      <div id="plot-facts"></div>
+      <p id="plot-note"></p>
+      <div id="plot-wrap">
+        <figure id="plot-figure"><img id="plot" alt=""><div id="plot-missing"></div>
+          <figcaption id="plot-caption"></figcaption></figure>
+        <figure id="nst-figure"><canvas id="nst"></canvas>
+          <figcaption>Noise in this star and period bin: the fitted null distribution (dashed), the null-search maxima (circles) and the signal (red).</figcaption></figure>
+      </div>
+    </div>
   </div>
+  <footer><div class="inner">
+    Method: <a href="https://arxiv.org/abs/2601.07465">Robnik, Seljak, Jenkins &amp; Bryson (2026)</a> and
+    <a href="https://arxiv.org/abs/2407.17565">Robnik et al. (2024)</a>.
+    Data: TESS light curves from MAST; known objects from ExoFOP-TESS, the NASA Exoplanet Archive and the TESS eclipsing-binary catalog
+    (<a href="https://doi.org/10.3847/1538-4365/ac324a">Pr&scaron;a et al. 2022</a>).
+    <span id="updated"></span>
+  </div></footer>
 </div>
 
 <script>
@@ -146,95 +255,161 @@ const COLUMNS_KOI = [
   { title: 'Holczer+2016', field: 'holczer',          sorter: 'boolean', hozAlign: 'center', width: 110, formatter: fmtPass },
 ];
 
-const COLUMNS_TESS_TTVS = [
-  { title: 'TIC',          field: 'TIC',              sorter: 'number',  hozAlign: 'right',  width: 110, frozen: true, formatter: fmtInt },
-  { title: 'TOI',          field: 'TOI',              sorter: 'number',  hozAlign: 'right',  width: 90,  formatter: fmtNum(2) },
-  { title: 'Period [d]',   field: 'period',           sorter: 'number',  hozAlign: 'right',  width: 120, formatter: fmtSig },
-  { title: 'τ [d]',        field: 'tau',              sorter: 'number',  hozAlign: 'right',  width: 80,  formatter: fmtSig },
-  { title: 'SNR',          field: 'snr',              sorter: 'number',  hozAlign: 'right',  width: 95,  formatter: fmtSig },
-  { title: 'TTV SNR',      field: 'ttv_snr',          sorter: 'number',  hozAlign: 'right',  width: 100, formatter: fmtSig },
-  { title: 'Nₜᵣ',      field: 'n_transits',       sorter: 'number',  hozAlign: 'right',  width: 70,  formatter: fmtInt },
-  { title: 'Nabbie+2026',  field: 'nabbie',           sorter: 'boolean', hozAlign: 'center', width: 110, formatter: fmtPass },
+const LIST_FILTER = { headerFilter: 'list', headerFilterParams: { valuesLookup: true, clearable: true }, headerFilterPlaceholder: 'all' };
+
+const COLUMNS_EB = [
+  { title: 'TIC',                 field: 'TIC',                sorter: 'number', hozAlign: 'right',  width: 110, frozen: true, formatter: fmtInt },
+  { title: 'Name',                field: 'Name',               sorter: 'string', hozAlign: 'left',   width: 190 },
+  Object.assign({ title: 'Listed as', field: 'Origin',         sorter: 'string', hozAlign: 'left',   width: 180 }, LIST_FILTER),
+  { title: 'Period [d]',          field: 'Period',             sorter: 'number', hozAlign: 'right',  width: 120, formatter: fmtFixed(6) },
+  { title: 'Epoch [BTJD]',        field: 'Epoch',              sorter: 'number', hozAlign: 'right',  width: 120, formatter: fmtFixed(4) },
+  { title: 'Eclipse width [d]',   field: 'Duration',           sorter: 'number', hozAlign: 'right',  width: 130, formatter: fmtFixed(4) },
+  { title: 'Secondary phase',     field: 'Secondary_phase',    sorter: 'number', hozAlign: 'right',  width: 130, formatter: fmtFixed(3) },
+  { title: 'Secondary width [d]', field: 'Secondary_duration', sorter: 'number', hozAlign: 'right',  width: 150, formatter: fmtFixed(4) },
+  Object.assign({ title: 'Checked', field: 'Checked',          sorter: 'string', hozAlign: 'left',   width: 185, formatter: fmtChecked }, LIST_FILTER),
+  { title: 'P(binary)',           field: 'P_binary',           sorter: 'number', hozAlign: 'right',  width: 95,  formatter: fmtProb },
+  { title: 'SNR',                 field: 'SNR',                sorter: 'number', hozAlign: 'right',  width: 85,  formatter: fmtSig },
+  Object.assign({ title: 'Curve', field: 'Curve',              sorter: 'string', hozAlign: 'left',   width: 150 }, LIST_FILTER),
+  { title: 'Figure',              field: 'plot',               sorter: 'string', hozAlign: 'center', width: 75,  formatter: cell => cell.getValue() ? '<span class="ok">&#10004;</span>' : '' },
 ];
 
+const num = v => (v == null || isNaN(v)) ? '' : Number(v).toLocaleString();
+const TRANSIT_CAPTION = 'Top: the light curve folded at the ephemeris, with the fitted transit shape (dashed). Bottom: the individual transits, one colour each.';
+
+// EB figures, by the kind of curve they show (the `Curve` column; eb_figure.py)
+const EB_PANELS = d => 'Top: the primary and the secondary eclipse. Bottom: the whole orbit' +
+  (d.Fold_period != null && d.Fold_period > 1.5 * d.Period ? ', folded at twice the listed period: the two eclipses of a pair of similar stars. ' : '. ');
+const EB_CAPTION = {
+  'posterior': d => EB_PANELS(d) + 'Dashed: the binary model of the false-positive analysis, the median of its posterior samples (band: 68 %). Only the baseline and a time shift are fitted. The fold uses the two-minute sectors, the data that analysis was fitted to.',
+  'physical fit': d => EB_PANELS(d) + 'Dashed: an eclipse model of two limb-darkened stars, fitted to the fold. Its parameters are not measurements.',
+  'two-Gaussian fit': d => 'The light curve folded at the orbital period. Dashed: a two-Gaussian eclipse model fitted to the fold; it describes the shape and carries no physics.',
+  'none': d => 'The light curve folded at the listed ephemeris. Neither the review nor a fit to this fold found an eclipse there, so no model is drawn.',
+  'no curve': d => 'The light curve folded at the listed ephemeris. No model is drawn: a fitted curve did not describe the eclipse, mostly because it sits on a larger wave.',
+  'transit fit': d => 'The signal as our transit search fitted it, before it was classified as a binary. ' + TRANSIT_CAPTION,
+};
+
 const PAGES = [
-  { key: 'overview',  title: 'Overview',                 md: 'overview.md',       type: 'placeholder' },
-  { key: 'tess',      title: 'TESS Exoplanet Catalog',   md: 'tess.md',           type: 'table', csv: 'tois.csv',
+  { key: 'overview',  nav: 'Overview', title: 'Finding planets at the noise floor', md: 'overview.md', type: 'text',
+    lede: 'A transit search that models each star’s own variability, tests every signal against that star’s own noise, and publishes what it finds in TESS and Kepler.' },
+  { key: 'tess',      group: 'TESS', nav: 'Planets', title: 'TESS Exoplanet Catalog', md: 'tess.md', type: 'table', csv: 'tess_planets.csv',
+    lede: s => `${num(s.planets)} known TESS planets and planet candidates fitted by our pipeline at a verified ephemeris; ${num(s.planets_spoc)} of them with a significance measured against their star's own noise.`,
+    stats: s => [[s.planets, 'planets and candidates'], [s.confirmed, 'confirmed planets'], [s.planets_passing, 'pass every test'], [s.planet_hosts, 'host stars']],
     downloadFilename: 'tess_exoplanet_catalog.csv',
     hasOodChart: true,
     collapsible: true,
     passingFilter: true,
     passingToggleLabel: { on: 'Show all catalog entries', off: 'Show passing entries only' },
-    plot:  d => `plots/${d.TIC}/${d.known_idx}.jpg?v=${PLOT_VERSION}`,
-    ptitle:d => `TIC ${d.TIC} · TOI ${d.TOI} · planet ${d.known_idx + 1} · P=${(+d.Period).toFixed(4)} d, Epoch=${(+d.Epoch).toFixed(4)} BTJD, Dur=${(+d.Duration).toFixed(4)} d · SNR=${(+d.SNR).toFixed(1)}` },
-  { key: 'tessnew',   title: 'TESS New Candidates',      md: 'tess_new.md',       type: 'table', csv: 'tois_new.csv',
+    otherSurveys: { field: 'NEA_only', nameField: 'known_as',
+                    on: 'Showing TESS discoveries only. Click to add the confirmed planets without a TOI number (mostly Kepler and K2).',
+                    off: 'Showing TESS discoveries and the confirmed planets without a TOI number. Click to hide the latter.' },
+    extraColumns: [{ title: 'Name', field: 'known_as', sorter: 'string', hozAlign: 'left', width: 170, _after: 'TOI' }],
+    filterFields: ['TIC', 'TOI', 'known_as'], filterPlaceholder: 'Filter TIC, TOI or name…',
+    noPlot: 'No figure for this row.',
+    plot:  d => d.plot ? `${d.plot}?v=${PLOT_VERSION}` : null,
+    caption: TRANSIT_CAPTION,
+    name:  d => `${d.TOI != null ? 'TOI ' + Number(d.TOI).toFixed(2) : (d.known_as || 'Signal')} · TIC ${d.TIC}`,
+    facts: d => [['class', d.Class], ['P', fx(d.Period, 6) + ' d'], ['epoch', fx(d.Epoch, 4) + ' BTJD'], ['duration', fx(d.Duration, 4) + ' d'],
+                 ['SNR', fx(d.SNR, 1)], ['Rₚ', d.Radius_planet != null ? sig3(d.Radius_planet) + ' R⊕' : ''], ['checked', d.Checked]],
+    note:  d => [
+      d.fit_stale === true && d.Data !== 'archive' ? `The figure, SNR, radius and p-value of this row were computed at its own fit (P = ${fx(d.Period_fit, 6)} d, epoch ${fx(d.Epoch_fit, 4)}), which leaves the listed, verified ephemeris by more than half a transit duration.` : '',
+      d.fit_stale === true && d.Data === 'archive' ? `The fit behind the SNR and radius settled at P = ${fx(d.Period_fit, 6)} d, epoch ${fx(d.Epoch_fit, 4)}, more than half a transit duration from the listed, verified ephemeris; the figure is folded at the listed one.` : '',
+      d.null_bin_period != null ? `The p-value uses the null searches of this star's closest period bin, at P = ${fx(d.null_bin_period, 4)} d; the signal's own bin has none yet.` : '',
+      d.Data === 'archive' ? 'SNR, radius and figure come from our fit to the all-sky light curve of this star. It has no null searches yet, so the row has no p-value and no test results.' : '',
+      d.NEA_only === true ? 'A confirmed planet without a TOI number, listed at its NASA Exoplanet Archive ephemeris. Our search masks it at these values without fitting it, so the row has no SNR, radius or figure.' : '',
+      d.Note || '',
+    ].filter(Boolean).join(' '),
+    ptitle:d => `TIC ${d.TIC} TOI ${d.TOI}` },
+  { key: 'tessebs',   group: 'TESS', nav: 'Eclipsing binaries', title: 'TESS Eclipsing Binaries', md: 'tess_ebs.md', type: 'table', csv: 'tess_ebs.csv',
+    lede: s => `${num(s.ebs)} eclipsing binaries on TESS stars, with the period, epoch and eclipse width that the light curves support.`,
+    stats: s => [[s.ebs, 'eclipsing binaries'], [s.ebs_catalog, 'from the TESS-EB catalog'], [s.ebs_toi, 'TOIs dispositioned as binaries'], [s.ebs_reclassified, 'reclassified candidates'], [s.ebs_secondary, 'with a secondary eclipse']],
+    downloadFilename: 'tess_eclipsing_binaries.csv',
+    columns: COLUMNS_EB, initialSort: [{ column: 'Period', dir: 'asc' }],
+    filterFields: ['TIC', 'Name'], filterPlaceholder: 'Filter TIC or name…',
+    plot:  d => d.plot ? `${d.plot}?v=${PLOT_VERSION}` : null,
+    noPlot: 'No folded light curve for this binary: the star has no light curve in our archive, or the figure could not be drawn.',
+    caption: d => EB_CAPTION[d.Curve] ? EB_CAPTION[d.Curve](d) : '',
+    name:  d => `${d.Name} · TIC ${d.TIC}`,
+    facts: d => [['listed as', d.Origin], ['P', fx(d.Period, 6) + ' d'], ['epoch', fx(d.Epoch, 4) + ' BTJD'], ['eclipse width', fx(d.Duration, 4) + ' d'],
+                 ['secondary at phase', d.Secondary_phase != null ? fx(d.Secondary_phase, 3) : ''], ['checked', d.Checked]],
+    ptitle:d => `${d.Name} TIC ${d.TIC}`,
+    nst: false },
+  { key: 'tessnew',   group: 'TESS', nav: 'New candidates', title: 'TESS New Candidates', md: 'tess_new.md', type: 'table', csv: 'tois_new.csv',
+    lede: s => `${num(s.new_candidates)} transit signals found by our search that are not in the TOI catalog; ${num(s.new_passing)} of them pass every vetting test.`,
+    stats: s => [[s.new_candidates, 'new candidates'], [s.new_passing, 'pass every test']],
     downloadFilename: 'tess_new_candidates.csv',
     hasOodChart: true,
     collapsible: true,
     passingFilter: true,
+    omitFields: ['Class', 'Checked', 'Ephemeris', 'FPP', 'P_binary', 'P_elsewhere'],
     colOverrides: { TOI: { visible: false } },
     extraColumns: [
       { title: 'Proposed TOI', field: 'proposed_toi', sorter: 'number', hozAlign: 'right', width: 110, formatter: fmtTOI, _after: 'TIC' },
       { title: 'Habitable zone', field: 'habitable_zone', sorter: 'string', hozAlign: 'left', width: 125, _after: 'Radius_planet' },
     ],
-    plot:  d => `plots_new/${d.TIC}/${d._cand_idx}.jpg?v=${PLOT_VERSION}`,
-    ptitle:d => `TIC ${d.TIC} · proposed TOI ${d.proposed_toi != null ? Number(d.proposed_toi).toFixed(2) : ''} · P=${(+d.Period).toFixed(4)} d, Epoch=${(+d.Epoch).toFixed(4)} BTJD, Dur=${(+d.Duration).toFixed(4)} d · SNR=${(+d.SNR).toFixed(1)}` },
-  { key: 'keplercat',  title: 'Kepler Exoplanet Catalog', md: 'kepler_catalog.md', type: 'placeholder' },
-  { key: 'keplernew',  title: 'Kepler New Candidates',    md: 'kepler_new.md',     type: 'table', csv: 'kepler_online.csv',
+    plot:  d => `plots_new/${d.TIC}/${d._cand_idx}${(STATS && STATS.new_figure_ext) || '.jpg'}?v=${PLOT_VERSION}`,
+    caption: TRANSIT_CAPTION,
+    name:  d => `${d.proposed_toi != null ? 'Proposed TOI ' + Number(d.proposed_toi).toFixed(2) : 'New candidate'} · TIC ${d.TIC}`,
+    facts: d => [['P', fx(d.Period, 6) + ' d'], ['epoch', fx(d.Epoch, 4) + ' BTJD'], ['duration', fx(d.Duration, 4) + ' d'], ['SNR', fx(d.SNR, 1)],
+                 ['Rₚ', d.Radius_planet != null ? sig3(d.Radius_planet) + ' R⊕' : ''], ['habitable zone', d.habitable_zone]],
+    ptitle:d => `TIC ${d.TIC} new candidate` },
+  { key: 'keplercat',  group: 'Kepler', nav: 'Catalog', title: 'Kepler Exoplanet Catalog', md: 'kepler_catalog.md', type: 'text' },
+  { key: 'keplernew',  group: 'Kepler', nav: 'New candidates', title: 'Kepler New Candidates', md: 'kepler_new.md', type: 'table', csv: 'kepler_online.csv',
     downloadFilename: 'kepler_new_candidates.csv',
     hasOodChart: true,
     columns: COLUMNS_KEPLER_NEW,
     initialSort: [{ column: 'SNR', dir: 'desc' }],
     filterFields: ['kepid'], filterPlaceholder: 'Filter Kepler ID…',
     nst: false },
-  { key: 'keplerttvs', title: 'Kepler TTVs',              md: 'kepler_ttvs.md',    type: 'table', csv: 'kepler_ttvs_overview.csv',
+  { key: 'keplerttvs', group: 'Kepler', nav: 'TTVs', title: 'Kepler Transit Timing Variations', md: 'kepler_ttvs.md', type: 'table', csv: 'kepler_ttvs_overview.csv',
     columns: COLUMNS_KOI, initialSort: [{ column: 'snr', dir: 'desc' }],
     filterFields: ['kepid', 'KOI'], filterPlaceholder: 'Filter Kepler ID or KOI…',
-    downloads: [{ label: 'Download TTVs', file: 'kepler_ttvs.zip' }, { label: 'Download Table', file: 'kepler_ttvs_overview.csv' }],
+    downloads: [{ label: 'Download TTVs', file: 'kepler_ttvs.zip' }, { label: 'Download table', file: 'kepler_ttvs_overview.csv' }],
     plot:  d => `plots_kepler_ttvs/${d.KOI}.png`,
-    ptitle:d => `KOI ${d.KOI} · P=${(+d.period).toFixed(4)} d · SNR=${(+d.snr).toFixed(1)}`,
-    nst: false },
-  { key: 'tessttvs', title: 'TESS TTVs',                md: 'tess_ttvs.md',      type: 'table', csv: 'tess_ttvs_overview.csv',
-    columns: COLUMNS_TESS_TTVS, initialSort: [{ column: 'ttv_snr', dir: 'desc' }],
-    filterFields: ['TIC', 'TOI'], filterPlaceholder: 'Filter TIC or TOI…',
-    downloads: [{ label: 'Download Table', file: 'tess_ttvs_overview.csv' }],
-    plot:  d => `plots_tess_ttvs/${d.TOI}.jpg`,
-    ptitle:d => `TIC ${d.TIC} · TOI ${d.TOI} · P=${(+d.period).toFixed(4)} d · SNR=${(+d.snr).toFixed(1)} · TTV SNR=${(+d.ttv_snr).toFixed(1)}`,
+    name:  d => `KOI ${d.KOI} · Kepler ID ${d.kepid}`,
+    facts: d => [['P', fx(d.period, 4) + ' d'], ['SNR', fx(d.snr, 1)]],
+    ptitle:d => `KOI ${d.KOI}`,
     nst: false },
 ];
 
 const COLUMNS = [
   { title: 'TIC',         field: 'TIC',                 sorter: 'number',  hozAlign: 'right',  width: 110, frozen: true, formatter: fmtInt },
-  { title: 'TOI',         field: 'TOI',                 sorter: 'number',  hozAlign: 'right',  width: 80,  formatter: fmtNum(2) },
-  { title: 'Passes',      field: 'passed_all_tests',    sorter: 'boolean', hozAlign: 'center', width: 70,  formatter: fmtPass },
-  { title: 'Failed',      field: 'failed_tests',        sorter: 'string',  hozAlign: 'left',   width: 145, formatter: fmtFailed },
-  { title: 'Period [d]',  field: 'Period',               sorter: 'number',  hozAlign: 'right',  width: 150, formatter: fmtPM('err_Period') },
-  { title: 'Epoch [BTJD]',field: 'Epoch',                sorter: 'number',  hozAlign: 'right',  width: 150, formatter: fmtEpoch('err_Epoch', 4) },
-  { title: 'Duration [d]',field: 'Duration',             sorter: 'number',  hozAlign: 'right',  width: 140, formatter: fmtPM('err_Duration') },
-  { title: 'SNR',         field: 'SNR',                  sorter: 'number',  hozAlign: 'right',  width: 95,  formatter: fmtSig },
+  { title: 'TOI',         field: 'TOI',                 sorter: 'number',  hozAlign: 'right',  width: 86,  formatter: fmtNum(2) },
+  Object.assign({ title: 'Class', field: 'Class',       sorter: 'string',  hozAlign: 'left',   width: 150, formatter: fmtClass }, LIST_FILTER),
+  { title: 'Passes',      field: 'passed_all_tests',    sorter: 'boolean', hozAlign: 'center', width: 76,  formatter: fmtPass },
+  { title: 'Failed',      field: 'failed_tests',        sorter: 'string',  hozAlign: 'left',   width: 150, formatter: fmtFailed },
+  { title: 'Period [d]',  field: 'Period',              sorter: 'number',  hozAlign: 'right',  width: 180, formatter: fmtValErr('err_Period', 6) },
+  { title: 'Epoch [BTJD]',field: 'Epoch',               sorter: 'number',  hozAlign: 'right',  width: 160, formatter: fmtValErr('err_Epoch', 4) },
+  { title: 'Duration [d]',field: 'Duration',            sorter: 'number',  hozAlign: 'right',  width: 140, formatter: fmtValErr('err_Duration', 4) },
+  { title: 'SNR',         field: 'SNR',                 sorter: 'number',  hozAlign: 'right',  width: 85,  formatter: fmtSig },
   { title: 'Rₚ [R⊕]', field: 'Radius_planet',  sorter: 'number',  hozAlign: 'right',  width: 130, formatter: fmtPMasym('Radius_planet_errp', 'Radius_planet_errm') },
+  Object.assign({ title: 'Checked', field: 'Checked',   sorter: 'string',  hozAlign: 'left',   width: 190, formatter: fmtChecked }, LIST_FILTER),
+  { title: 'Ephemeris from', field: 'Ephemeris',        sorter: 'string',  hozAlign: 'left',   width: 215 },
+  { title: 'FPP',         field: 'FPP',                 sorter: 'number',  hozAlign: 'right',  width: 80,  formatter: fmtProb },
+  { title: 'P(binary)',   field: 'P_binary',            sorter: 'number',  hozAlign: 'right',  width: 95,  formatter: fmtProb },
+  { title: 'P(planet on another star)', field: 'P_elsewhere', sorter: 'number', hozAlign: 'right', width: 190, formatter: fmtProb },
   { title: 'M★ [M☉]', field: 'Mass',           sorter: 'number',  hozAlign: 'right',  width: 90,  formatter: fmtSig },
   { title: 'R★ [R☉]', field: 'Radius',         sorter: 'number',  hozAlign: 'right',  width: 90,  formatter: fmtSig },
-  { title: 'logg',        field: 'logg',                 sorter: 'number',  hozAlign: 'right',  width: 80,  formatter: fmtSig },
-  { title: '[Fe/H]',      field: 'FEH',                  sorter: 'number',  hozAlign: 'right',  width: 80,  formatter: fmtSig },
-  { title: 'Teff [K]',    field: 'Teff',                 sorter: 'number',  hozAlign: 'right',  width: 90,  formatter: fmtSig },
-  { title: 'log₁₀ p (global)', field: 'log10(p value)', sorter: 'number',  hozAlign: 'right',  width: 125, formatter: fmtSig },
-  { title: 'log₁₀ p (local)',  field: 'log10(p local)', sorter: 'number',  hozAlign: 'right',  width: 120, formatter: fmtSig },
-  { title: 'period bins',      field: 'n_period_bins',  sorter: 'number',  hozAlign: 'right',  width: 95,  formatter: fmtInt },
-  { title: 'μ(null)', field: 'μ(SNR | null)',   sorter: 'number',  hozAlign: 'right',  width: 80,  formatter: fmtSig },
-  { title: 'σ(null)', field: 'σ(SNR | null)',   sorter: 'number',  hozAlign: 'right',  width: 80,  formatter: fmtSig },
+  { title: 'logg',        field: 'logg',                sorter: 'number',  hozAlign: 'right',  width: 80,  formatter: fmtSig },
+  { title: '[Fe/H]',      field: 'FEH',                 sorter: 'number',  hozAlign: 'right',  width: 80,  formatter: fmtSig },
+  { title: 'Teff [K]',    field: 'Teff',                sorter: 'number',  hozAlign: 'right',  width: 90,  formatter: fmtSig },
+  { title: 'log₁₀ p (global)', field: 'log10(p value)', sorter: 'number',  hozAlign: 'right',  width: 130, formatter: fmtSig },
+  { title: 'log₁₀ p (local)',  field: 'log10(p local)', sorter: 'number',  hozAlign: 'right',  width: 125, formatter: fmtSig },
+  { title: 'Period bins',      field: 'n_period_bins',  sorter: 'number',  hozAlign: 'right',  width: 100, formatter: fmtInt },
+  { title: 'μ(null)', field: 'μ(SNR | null)',   sorter: 'number',  hozAlign: 'right',  width: 85,  formatter: fmtSig },
+  { title: 'σ(null)', field: 'σ(SNR | null)',   sorter: 'number',  hozAlign: 'right',  width: 85,  formatter: fmtSig },
 ];
 
 // Columns shown by default on the collapsible TESS tables; everything else is hidden until the
 // user clicks "Show extended catalog". (proposed_toi is the TOI-equivalent for New Candidates.)
 // bump when figures are replaced under unchanged file names, so browsers and the Pages CDN reload them
-const PLOT_VERSION = '20260924a';
+const PLOT_VERSION = '20261119d';
 
-const TESS_DEFAULT_FIELDS = new Set(['TIC', 'TOI', 'proposed_toi', 'Period', 'SNR', 'Radius_planet', 'habitable_zone', 'log10(p value)']);
+const TESS_DEFAULT_FIELDS = new Set(['TIC', 'TOI', 'proposed_toi', 'Class', 'Period', 'SNR', 'Radius_planet', 'habitable_zone', 'log10(p value)']);
 
 function buildColumns(page) {
   const ovr = page.colOverrides || {};
-  let cols = COLUMNS.map(c => Object.assign({}, c, ovr[c.field] || {}));
+  const omit = new Set(page.omitFields || []);
+  let cols = COLUMNS.filter(c => !omit.has(c.field)).map(c => Object.assign({}, c, ovr[c.field] || {}));
   for (const xc of (page.extraColumns || [])) {
     const after = xc._after;
     const col = Object.assign({}, xc);
@@ -335,7 +510,37 @@ function fmtPMasym(errpField, errmField) {
   };
 }
 
-// NST null distribution: empirical CDF (step function) + fitted Gaussian CDF
+function fx(v, p) { return (v == null || isNaN(v)) ? '' : Number(v).toFixed(p); }
+function fmtFixed(p) { return cell => fx(cell.getValue(), p); }
+// value with its error: as many decimals as two significant digits of the error need; p decimals without an error
+function fmtValErr(errField, p) {
+  return cell => {
+    const v = cell.getValue();
+    if (v == null || isNaN(v)) return '';
+    const e = Number(cell.getRow().getData()[errField]);
+    if (!isFinite(e) || e <= 0) return Number(v).toFixed(p);
+    const d = Math.min(8, Math.max(0, 1 - Math.floor(Math.log10(e))));
+    return `${Number(v).toFixed(d)} <span class="pm">&plusmn; ${e.toFixed(d)}</span>`;
+  };
+}
+function fmtProb(cell) {
+  const v = cell.getValue();
+  if (v == null || isNaN(v)) return '';
+  return v < 0.001 ? '&lt; 0.001' : (v > 0.999 ? '&gt; 0.999' : Number(v).toFixed(3));
+}
+function fmtClass(cell) {
+  const v = cell.getValue();
+  if (!v) return '';
+  return `<span class="tag ${v === 'confirmed planet' ? 'planet' : 'candidate'}">${v}</span>`;
+}
+function fmtChecked(cell) {
+  const v = cell.getValue();
+  if (!v) return '';
+  const kind = v.includes('clear') ? 'clear' : v.includes('weak') ? 'weak' : v.includes('analysis') ? 'analysis' : 'none';
+  return `<span class="tag ${kind}">${v}</span>`;
+}
+
+// Null distribution of a star and period bin: fitted survival function, null-search maxima, and the signal
 // Shared SNR grid on which each star's Singh-Maddala posterior-mean log10(survival function) is
 // tabulated (the 'sm_sf_grid' column). MUST match pvalue/fit_all.py and sm_pvalue.py.
 const SM_XGRID = (() => {       // dense to 20 + coarse tail to 2500; MUST match pvalue/fit_all.py
@@ -355,29 +560,59 @@ function smInterp(lx, grid) {            // log10(SF) at log10(SNR)=lx; clamp at
 
 // "10^exp" with a proper raised superscript (and unicode minus), right-aligned to end at xRight.
 function drawPow10(ctx, exp, xRight, y, F) {
-  ctx.fillStyle = '#5b6472';
-  if (exp === 0) { ctx.font = F + 'px sans-serif'; ctx.textAlign = 'right'; ctx.fillText('1', xRight, y + F * 0.34); return; }
+  ctx.fillStyle = '#000';
+  if (exp === 0) { ctx.font = F + 'px ' + FIG_FONT; ctx.textAlign = 'right'; ctx.fillText('1', xRight, y + F * 0.34); return; }
   const sup = (exp < 0 ? '−' : '') + Math.abs(exp);
   const fs = Math.round(F * 0.68);
   ctx.textAlign = 'left';
-  ctx.font = F + 'px sans-serif'; const w10 = ctx.measureText('10').width;
-  ctx.font = fs + 'px sans-serif'; const ws = ctx.measureText(sup).width;
+  ctx.font = F + 'px ' + FIG_FONT; const w10 = ctx.measureText('10').width;
+  ctx.font = fs + 'px ' + FIG_FONT; const ws = ctx.measureText(sup).width;
   const sx = xRight - (w10 + ws);
-  ctx.font = F + 'px sans-serif'; ctx.fillText('10', sx, y + F * 0.34);
-  ctx.font = fs + 'px sans-serif'; ctx.fillText(sup, sx + w10, y + F * 0.34 - F * 0.46);
+  ctx.font = F + 'px ' + FIG_FONT; ctx.fillText('10', sx, y + F * 0.34);
+  ctx.font = fs + 'px ' + FIG_FONT; ctx.fillText(sup, sx + w10, y + F * 0.34 - F * 0.46);
 }
 
-// Per-candidate survival-function (log scale) panel: the star's Singh-Maddala posterior-mean SF
-// model vs the empirical NST survival function, with the candidate's SNR and p-value.
+// Per-candidate survival-function (log scale) panel: the star's Singh-Maddala posterior-mean SF model vs the empirical
+// null-search survival function, with the candidate's SNR and p-value. Drawn like the transit figures: serif type, a
+// full black frame, a light grid, navy open circles for the data, a black dashed line for the model, red for the signal.
+const FIG_FONT = '"DejaVu Serif", "Bitstream Vera Serif", Georgia, "Times New Roman", serif';
+const FIG_NAVY = '#1f1f8f', FIG_RED = '#d62728', FIG_INK = '#000', FIG_GRID = '#e3e3e3';
+
+// A p-value from its log10, two significant digits, as parts of a line of figure text: {t} plain, {i} italic, {sup} raised.
+function pParts(lp) {
+  if (lp == null || !isFinite(lp)) return [{ t: 'n/a' }];
+  if (lp <= -300) return [{ t: '< 10' }, { sup: '−300' }];
+  if (lp >= -2) return [{ t: (10 ** lp).toPrecision(2) }];
+  let e = Math.floor(lp), m = (10 ** (lp - e)).toFixed(1);
+  if (m === '10.0') { m = '1.0'; e += 1; }
+  return [{ t: m + ' × 10' }, { sup: '−' + Math.abs(e) }];
+}
+// Draws (or only measures, draw = false) a line of parts starting at x; returns its width.
+function richText(ctx, parts, x, y, F, draw) {
+  let w = 0;
+  for (const part of parts) {
+    const raised = part.sup != null, s = raised ? part.sup : (part.i != null ? part.i : part.t);
+    ctx.font = (part.i != null ? 'italic ' : '') + Math.round(raised ? F * 0.7 : F) + 'px ' + FIG_FONT;
+    if (draw !== false) ctx.fillText(s, x + w, raised ? y - F * 0.42 : y);
+    w += ctx.measureText(s).width;
+  }
+  return w;
+}
+
 function drawNullSF(canvas, sfGridStr, snr, log10p, nstSamplesStr, log10pGlobal, nBins) {
-  const W = 1300, H = 800, ctx = canvas.getContext('2d');
-  canvas.width = W; canvas.height = H;
+  // logical size 1300 x 1000; the bitmap has one pixel per device pixel of the displayed figure, so lines and type stay crisp
+  const W = 1300, H = 1000;
+  const shown = Number(canvas.clientHeight) || 460, ratio = Number(window.devicePixelRatio) || 1;
+  const scale = Math.min(2, Math.max(0.4, shown * ratio / H));
+  canvas.width = Math.round(W * scale); canvas.height = Math.round(H * scale);
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(scale, 0, 0, scale, 0, 0);
   ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, W, H);
-  ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+  ctx.lineJoin = 'round'; ctx.lineCap = 'butt';
   const grid = (sfGridStr || '').split('|').map(Number);
   if (grid.length !== SM_XGRID.length || grid.some(v => !isFinite(v))) {
-    ctx.fillStyle = '#888'; ctx.textAlign = 'center'; ctx.font = 'italic 30px sans-serif';
-    ctx.fillText('No null-simulation (NST) fit for this candidate', W / 2, H / 2);
+    ctx.fillStyle = '#555'; ctx.textAlign = 'center'; ctx.font = 'italic 40px ' + FIG_FONT;
+    ctx.fillText('No null searches for this signal', W / 2, H / 2);
     return;
   }
   const xs = (nstSamplesStr || '').split('|').map(Number)
@@ -386,7 +621,8 @@ function drawNullSF(canvas, sfGridStr, snr, log10p, nstSamplesStr, log10pGlobal,
   snr = Math.max(snr, 1.001);
   if (log10p == null || !isFinite(log10p)) log10p = smInterp(Math.log10(snr), grid);
 
-  const px0 = 132, px1 = W - 46, py0 = 54, py1 = H - 100;
+  const TICK = 38, LABEL = 42, LEGEND = 35;                       // type sizes, logical pixels
+  const px0 = 212, px1 = W - 44, py0 = 40, py1 = H - 152;
   let loSNR = hasEmp ? Math.min(xs[0] * 0.85, snr * 0.7) : snr * 0.6;
   loSNR = Math.max(loSNR, 1.5);
   const hiSNR = Math.max(snr, hasEmp ? xs[xs.length - 1] : 0) * 1.15;
@@ -399,7 +635,7 @@ function drawNullSF(canvas, sfGridStr, snr, log10p, nstSamplesStr, log10pGlobal,
   const Y = ly => py0 + (yTop - ly) / (yTop - yBot) * (py1 - py0);
   const modelY = s => Y(smInterp(Math.log10(s), grid));
 
-  // x ticks (1-2-5 per decade); y decade ticks, thinned for large spans
+  // x ticks (1-2-5 per decade, denser for a short axis), thinned until their labels have room; y decade ticks
   const tickSets = [[1, 2, 5], [1, 1.5, 2, 3, 4, 5, 6, 8]];
   let TICKS = [];
   for (const mants of tickSets) {
@@ -409,103 +645,114 @@ function drawNullSF(canvas, sfGridStr, snr, log10p, nstSamplesStr, log10pGlobal,
         if (u >= lo - 1e-9 && u <= hi + 1e-9) TICKS.push(t); }
     if (TICKS.length >= 4) break;
   }
-  const dstep = Math.max(1, Math.ceil((yTop - yBot) / 9));
+  ctx.font = TICK + 'px ' + FIG_FONT;
+  const roomy = [];
+  TICKS.forEach(t => { if (!roomy.length || X(t) - X(roomy[roomy.length - 1]) > ctx.measureText(String(t)).width + 34) roomy.push(t); });
+  TICKS = roomy;
+  const dstep = Math.max(1, Math.ceil((yTop - yBot) / 8));
   const YT = [];
   for (let d = 0; d >= Math.floor(yBot); d -= dstep) if (d <= yTop + 1e-9) YT.push(d);
 
-  // light gridlines
-  ctx.strokeStyle = '#eef0f4'; ctx.lineWidth = 1.5; ctx.setLineDash([]);
-  TICKS.forEach(t => { ctx.beginPath(); ctx.moveTo(X(t), py0); ctx.lineTo(X(t), py1); ctx.stroke(); });
-  YT.forEach(d => { ctx.beginPath(); ctx.moveTo(px0, Y(d)); ctx.lineTo(px1, Y(d)); ctx.stroke(); });
+  // light grid; a line that would sit on the frame is left out
+  ctx.strokeStyle = FIG_GRID; ctx.lineWidth = 2; ctx.setLineDash([]);
+  TICKS.forEach(t => { const x = X(t); if (x - px0 < 16 || px1 - x < 16) return;
+    ctx.beginPath(); ctx.moveTo(x, py0); ctx.lineTo(x, py1); ctx.stroke(); });
+  YT.forEach(d => { const y = Y(d); if (y - py0 < 16 || py1 - y < 16) return;
+    ctx.beginPath(); ctx.moveTo(px0, y); ctx.lineTo(px1, y); ctx.stroke(); });
 
-  // model SF: soft fill under the curve, then the smooth curve
-  ctx.beginPath();
-  for (let px = px0; px <= px1; px++) {
-    const yy = Y(smInterp(lo + (px - px0) / (px1 - px0) * (hi - lo), grid));
-    px === px0 ? ctx.moveTo(px, yy) : ctx.lineTo(px, yy);
-  }
-  ctx.lineTo(px1, py1); ctx.lineTo(px0, py1); ctx.closePath();
-  ctx.fillStyle = 'rgba(47,127,193,0.08)'; ctx.fill();
-  ctx.beginPath();
-  for (let px = px0; px <= px1; px++) {
-    const yy = Y(smInterp(lo + (px - px0) / (px1 - px0) * (hi - lo), grid));
-    px === px0 ? ctx.moveTo(px, yy) : ctx.lineTo(px, yy);
-  }
-  ctx.strokeStyle = '#1f6fb2'; ctx.lineWidth = 4.5; ctx.stroke();
+  // everything below is clipped to the frame
+  ctx.save(); ctx.beginPath(); ctx.rect(px0, py0, px1 - px0, py1 - py0); ctx.clip();
 
-  // empirical SF: clean white-edged circles at SF = (n-j)/n (no staircase)
+  // the signal: red dashed line at its SNR
+  ctx.beginPath(); ctx.setLineDash([18, 11]); ctx.strokeStyle = FIG_RED; ctx.lineWidth = 4.5;
+  ctx.moveTo(X(snr), py0); ctx.lineTo(X(snr), py1); ctx.stroke(); ctx.setLineDash([]);
+
+  // null-search maxima: navy open circles at SF = (n - j) / n
   if (hasEmp) {
     const n = xs.length;
+    ctx.lineWidth = 4; ctx.strokeStyle = FIG_NAVY; ctx.fillStyle = 'rgba(255,255,255,0.75)';
     for (let j = 0; j < n; j++) {
-      ctx.beginPath(); ctx.arc(X(xs[j]), Y(Math.log10((n - j) / n)), 8, 0, 2 * Math.PI);
-      ctx.fillStyle = '#143b66'; ctx.fill();
-      ctx.strokeStyle = '#fff'; ctx.lineWidth = 2.5; ctx.stroke();
+      ctx.beginPath(); ctx.arc(X(xs[j]), Y(Math.log10((n - j) / n)), 12, 0, 2 * Math.PI);
+      ctx.fill(); ctx.stroke();
     }
   }
 
-  // candidate: soft vertical guide + marker on the model curve
-  ctx.beginPath(); ctx.setLineDash([6, 7]); ctx.strokeStyle = 'rgba(214,69,63,0.85)'; ctx.lineWidth = 2.5;
-  ctx.moveTo(X(snr), py0); ctx.lineTo(X(snr), py1); ctx.stroke(); ctx.setLineDash([]);
-  ctx.beginPath(); ctx.arc(X(snr), modelY(snr), 9.5, 0, 2 * Math.PI);
-  ctx.fillStyle = '#d6453f'; ctx.fill(); ctx.strokeStyle = '#fff'; ctx.lineWidth = 2.5; ctx.stroke();
+  // fitted survival function: black dashed line, as the transit model
+  ctx.beginPath();
+  for (let px = px0; px <= px1; px++) {
+    const yy = Y(smInterp(lo + (px - px0) / (px1 - px0) * (hi - lo), grid));
+    px === px0 ? ctx.moveTo(px, yy) : ctx.lineTo(px, yy);
+  }
+  ctx.strokeStyle = FIG_INK; ctx.lineWidth = 6; ctx.setLineDash([26, 12]); ctx.stroke(); ctx.setLineDash([]);
 
-  // axes (left + bottom only)
-  ctx.strokeStyle = '#c3cad6'; ctx.lineWidth = 2;
-  ctx.beginPath(); ctx.moveTo(px0, py0); ctx.lineTo(px0, py1); ctx.lineTo(px1, py1); ctx.stroke();
+  // the signal on the fitted curve
+  ctx.beginPath(); ctx.arc(X(snr), modelY(snr), 14, 0, 2 * Math.PI);
+  ctx.fillStyle = FIG_RED; ctx.fill(); ctx.strokeStyle = '#fff'; ctx.lineWidth = 3; ctx.stroke();
+  ctx.restore();
 
-  // x tick labels
-  ctx.fillStyle = '#5b6472'; ctx.font = '26px sans-serif'; ctx.textAlign = 'center'; ctx.lineWidth = 2;
-  ctx.strokeStyle = '#c3cad6';
+  // full frame, outward ticks on the left and bottom
+  ctx.strokeStyle = FIG_INK; ctx.lineWidth = 3; ctx.setLineDash([]);
+  ctx.strokeRect(px0, py0, px1 - px0, py1 - py0);
+  ctx.fillStyle = FIG_INK; ctx.font = TICK + 'px ' + FIG_FONT; ctx.textAlign = 'center';
   TICKS.forEach(t => {
-    ctx.beginPath(); ctx.moveTo(X(t), py1); ctx.lineTo(X(t), py1 + 9); ctx.stroke();
-    ctx.fillText(String(t), X(t), py1 + 40);
+    ctx.beginPath(); ctx.moveTo(X(t), py1); ctx.lineTo(X(t), py1 + 13); ctx.stroke();
+    ctx.fillText(String(t), X(t), py1 + 56);
   });
-  ctx.fillStyle = '#374151'; ctx.font = '29px sans-serif';
-  ctx.fillText('matched-filter SNR', (px0 + px1) / 2, H - 26);
-
-  // y tick labels (proper 10^n superscripts)
-  ctx.strokeStyle = '#c3cad6'; ctx.lineWidth = 2;
+  ctx.font = LABEL + 'px ' + FIG_FONT;
+  ctx.fillText('matched-filter SNR', (px0 + px1) / 2, H - 30);
   YT.forEach(d => {
-    ctx.beginPath(); ctx.moveTo(px0 - 9, Y(d)); ctx.lineTo(px0, Y(d)); ctx.stroke();
-    drawPow10(ctx, d, px0 - 16, Y(d), 24);
+    ctx.beginPath(); ctx.moveTo(px0 - 13, Y(d)); ctx.lineTo(px0, Y(d)); ctx.stroke();
+    drawPow10(ctx, d, px0 - 22, Y(d), TICK);
   });
-  ctx.save(); ctx.translate(30, (py0 + py1) / 2); ctx.rotate(-Math.PI / 2);
-  ctx.fillStyle = '#374151'; ctx.textAlign = 'center'; ctx.font = '28px sans-serif';
-  ctx.fillText(log10pGlobal != null ? 'survival function in the period bin   P(noise ≥ SNR)' : 'survival function   p = P(noise ≥ SNR)', 0, 0); ctx.restore();
+  ctx.save(); ctx.translate(50, (py0 + py1) / 2); ctx.rotate(-Math.PI / 2);
+  ctx.fillStyle = FIG_INK; ctx.textAlign = 'center'; ctx.font = LABEL + 'px ' + FIG_FONT;
+  ctx.fillText(log10pGlobal != null ? 'P(noise ≥ SNR) in the period bin' : 'P(noise ≥ SNR)', 0, 0); ctx.restore();
 
-  // p-value label
-  const fmtP = (lp) => { const v = 10 ** lp; return (v < 1e-4 || v === 0) ? (lp <= -300 ? '<1e-300' : v.toExponential(2)) : v.toFixed(4); };
-  const pStr = fmtP(log10p);
+  // legend, lower left, framed like a matplotlib legend; p-values as m × 10^e with two significant digits
   const hasGlobal = log10pGlobal != null && isFinite(log10pGlobal);
-
-  // legend (lower-left, over the light fill)
+  const P = [{ i: 'p' }, { t: ' = ' }];
   const items = [
-    { label: 'Singh–Maddala null SF',
-      draw: cy => { ctx.strokeStyle = '#1f6fb2'; ctx.lineWidth = 4.5; ctx.setLineDash([]);
-        ctx.beginPath(); ctx.moveTo(2, cy); ctx.lineTo(46, cy); ctx.stroke(); } },
+    { parts: [{ t: 'fitted null distribution' }],
+      draw: cy => { ctx.strokeStyle = FIG_INK; ctx.lineWidth = 6; ctx.setLineDash([20, 10]);
+        ctx.beginPath(); ctx.moveTo(0, cy); ctx.lineTo(66, cy); ctx.stroke(); ctx.setLineDash([]); } },
   ];
   if (hasEmp) items.push(
-    { label: 'NST samples (empirical SF)',
-      draw: cy => { ctx.beginPath(); ctx.arc(24, cy, 8, 0, 2 * Math.PI);
-        ctx.fillStyle = '#143b66'; ctx.fill(); ctx.strokeStyle = '#fff'; ctx.lineWidth = 2.5; ctx.stroke(); } });
+    { parts: [{ t: `null searches (${xs.length})` }],
+      draw: cy => { ctx.beginPath(); ctx.arc(33, cy, 12, 0, 2 * Math.PI);
+        ctx.fillStyle = '#fff'; ctx.fill(); ctx.strokeStyle = FIG_NAVY; ctx.lineWidth = 4; ctx.stroke(); } });
   items.push(
-    { label: hasGlobal ? `candidate   p = ${pStr} local, ${fmtP(log10pGlobal)} global (${nBins} bins)` : `candidate   p = ${pStr}`,
-      draw: cy => { ctx.beginPath(); ctx.arc(24, cy, 9, 0, 2 * Math.PI);
-        ctx.fillStyle = '#d6453f'; ctx.fill(); ctx.strokeStyle = '#fff'; ctx.lineWidth = 2.5; ctx.stroke(); } });
+    { parts: P.concat(pParts(log10p), hasGlobal ? [{ t: ' in its bin' }] : [{ t: ' (signal)' }]),
+      draw: cy => { ctx.beginPath(); ctx.arc(33, cy, 14, 0, 2 * Math.PI);
+        ctx.fillStyle = FIG_RED; ctx.fill(); } });
+  if (hasGlobal) items.push({ parts: P.concat(pParts(log10pGlobal), [{ t: ` over ${nBins} bins` }]), draw: () => {} });
 
-  ctx.font = '25px sans-serif';
-  const lw = 70 + Math.max(...items.map(it => ctx.measureText(it.label).width)) + 22;
-  const lh = 24 + items.length * 44;
-  const lx = px0 + 20, ly = py1 - lh - 20;
-  ctx.fillStyle = 'rgba(255,255,255,0.92)'; ctx.strokeStyle = '#e2e6ec'; ctx.lineWidth = 1.5;
-  ctx.beginPath();
-  if (ctx.roundRect) ctx.roundRect(lx, ly, lw, lh, 12); else ctx.rect(lx, ly, lw, lh);
-  ctx.fill(); ctx.stroke();
   ctx.textAlign = 'left';
+  const lw = 92 + Math.max(...items.map(it => richText(ctx, it.parts, 0, 0, LEGEND, false))) + 30;
+  const lh = 26 + items.length * 58;
+  // the box goes where it covers neither the curve, nor a null search, nor the signal line; ties prefer the corners
+  const covered = (x0, y0) => {
+    let n = 0;
+    for (let x = x0; x <= x0 + lw; x += 8) { const y = Y(smInterp(lo + (x - px0) / (px1 - px0) * (hi - lo), grid)); if (y > y0 - 14 && y < y0 + lh + 14) n++; }
+    xs.forEach((v, j) => { const x = X(v), y = Y(Math.log10((xs.length - j) / xs.length)); if (x > x0 - 16 && x < x0 + lw + 16 && y > y0 - 16 && y < y0 + lh + 16) n++; });
+    if (X(snr) > x0 - 12 && X(snr) < x0 + lw + 12) n += 1000;
+    return n;
+  };
+  const xMin = px0 + 26, xMax = Math.max(xMin, px1 - 26 - lw), yMin = py0 + 26, yMax = py1 - lh - 26;
+  let lx = xMin, ly = yMax, best = Infinity;
+  for (let a = 0; a <= 6; a++) for (let b = 0; b <= 6; b++) {
+    const x = xMin + (xMax - xMin) * a / 6, y = yMin + (yMax - yMin) * b / 6;
+    const corner = Math.min(a + (6 - b), (6 - a) + b);                // steps from the lower-left or the upper-right corner
+    const cost = covered(x, y) * 100 + corner;
+    if (cost < best) { best = cost; lx = x; ly = y; }
+  }
+  ctx.fillStyle = 'rgba(255,255,255,0.9)'; ctx.strokeStyle = '#bbbbbb'; ctx.lineWidth = 2;
+  ctx.beginPath();
+  if (ctx.roundRect) ctx.roundRect(lx, ly, lw, lh, 8); else ctx.rect(lx, ly, lw, lh);
+  ctx.fill(); ctx.stroke();
   items.forEach((it, i) => {
-    const cy = ly + 38 + i * 44;
-    ctx.save(); ctx.translate(lx + 16, 0); it.draw(cy); ctx.restore();
-    ctx.fillStyle = '#26303d'; ctx.fillText(it.label, lx + 82, cy + 8);
+    const cy = ly + 44 + i * 58;
+    ctx.save(); ctx.translate(lx + 18, 0); it.draw(cy); ctx.restore();
+    ctx.fillStyle = FIG_INK; richText(ctx, it.parts, lx + 104, cy + 12, LEGEND);
   });
 }
 
@@ -560,11 +807,11 @@ function buildOodChart(rows, xField, yField, chartType, page) {
     });
     const datasets = [
       { label: 'Candidates', data: regular,
-        backgroundColor: 'rgba(100,120,200,0.5)', pointRadius: 4, pointHoverRadius: 7 },
+        backgroundColor: 'rgba(31,31,143,0.45)', pointRadius: 4, pointHoverRadius: 7 },
     ];
     if (ood.length) datasets.push(
       { label: 'OoD (interesting)', data: ood,
-        backgroundColor: 'rgba(230,100,20,0.85)', pointRadius: 10, pointHoverRadius: 12,
+        backgroundColor: 'rgba(255,127,80,0.95)', pointRadius: 10, pointHoverRadius: 12,
         pointStyle: 'star' });
     oodChart = new Chart(canvas, {
       type: 'scatter',
@@ -601,10 +848,10 @@ function buildOodChart(rows, xField, yField, chartType, page) {
     });
     const labels = Array.from({ length: BINS }, (_, i) => (mn + (i + 0.5) * bw).toPrecision(3));
     const datasets = [
-      { label: 'Candidates', data: regC, backgroundColor: 'rgba(100,120,200,0.65)', stack: 'a' },
+      { label: 'Candidates', data: regC, backgroundColor: 'rgba(31,31,143,0.6)', stack: 'a' },
     ];
     if (oodC.some(c => c > 0)) datasets.push(
-      { label: 'OoD (interesting)', data: oodC, backgroundColor: 'rgba(230,100,20,0.75)', stack: 'a' });
+      { label: 'OoD (interesting)', data: oodC, backgroundColor: 'rgba(255,127,80,0.85)', stack: 'a' });
     oodChart = new Chart(canvas, {
       type: 'bar',
       data: { labels, datasets },
@@ -653,18 +900,29 @@ async function setupOodPanel(rows, page) {
 
 // app
 const els = {};
-let table = null, currentPage = null, currentRows = null, oodOpen = false;
+let table = null, currentPage = null, currentRows = null, oodOpen = false, STATS = null;
 const cacheCSV = {}, cacheMD = {};
 
 async function loadData(page) {
   if (cacheCSV[page.key]) return cacheCSV[page.key];
   const rows = parseCSV(await (await fetch(page.csv)).text());
-  if (page.key === 'tess') {
-    const counter = new Map();
-    rows.forEach(r => { const k = counter.get(r.TIC) ?? 0; r.known_idx = k; counter.set(r.TIC, k + 1); });
-  }
   cacheCSV[page.key] = rows;
   return rows;
+}
+
+// the catalog cards of the Overview, filled from site_stats.json
+function fillCards(el) {
+  const box = el.querySelector('#catalog-cards');
+  if (!box) return;
+  const s = STATS || {};
+  const cards = [
+    ['tess', s.planets, 'TESS planets and candidates', 'Known signals recovered by the search, with verified ephemerides and a significance each.'],
+    ['tessebs', s.ebs, 'TESS eclipsing binaries', 'Binaries from the TESS-EB catalog, the TOI list and our own reclassification, with verified eclipses.'],
+    ['tessnew', s.new_candidates, 'TESS new candidates', 'Transit signals that are not in the TOI catalog.'],
+    ['keplernew', null, 'Kepler', 'New candidates and transit-timing variations from the same pipeline.'],
+  ];
+  box.className = 'cards';
+  box.innerHTML = cards.map(c => `<a class="card" href="#${c[0]}">${c[1] != null ? `<b>${num(c[1])}</b>` : ''}<strong>${c[2]}</strong><span>${c[3]}</span></a>`).join('');
 }
 
 async function loadPageText(page) {
@@ -686,7 +944,20 @@ async function loadPageText(page) {
   let html = marked.parse(protectedMd);
   html = html.replace(/@@MATH(\d+)@@/g, (_, i) =>
     mathStore[+i].replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'));
-  el.innerHTML = '<div class="md">' + html + '</div>';
+  // table pages keep their description folded under the page head; text pages show it as the article
+  el.innerHTML = page.type === 'table'
+    ? '<details class="about"><summary>About this catalog: what is listed and how it was checked</summary><div class="md">' + html + '</div></details>'
+    : '<div class="md">' + html + '</div>';
+  // a figure that stands alone in its paragraph gets its alt text as a caption
+  el.querySelectorAll('.md p > img:only-child').forEach(img => {
+    const p = img.parentElement;
+    if (p.textContent.trim() !== '') return;
+    const fig = document.createElement('figure');
+    fig.appendChild(img);
+    if (img.alt) { const cap = document.createElement('figcaption'); cap.textContent = img.alt; fig.appendChild(cap); }
+    p.replaceWith(fig);
+  });
+  fillCards(el);
   if (window.renderMathInElement) renderMathInElement(el, {
     delimiters: [
       { left: '$$', right: '$$', display: true },
@@ -698,18 +969,30 @@ async function loadPageText(page) {
 }
 
 function showPlot(page, d) {
-  els.plotImg.src = page.plot(d);
-  els.plotImg.alt = page.ptitle(d);
-  els.plotTitle.textContent = page.ptitle(d);
-  if (page.nst === false) {
-    els.nst.style.display = 'none';
+  const src = page.plot ? page.plot(d) : null;
+  els.plotTitle.textContent = page.name ? page.name(d) : page.ptitle(d);
+  els.plotFacts.innerHTML = (page.facts ? page.facts(d) : [])
+    .filter(f => f[1] != null && String(f[1]).trim() !== '' && !/^\s*(d|BTJD)$/.test(String(f[1])))
+    .map(f => `<span class="fact"><i>${f[0]}</i>${f[1]}</span>`).join('');
+  els.plotNote.textContent = page.note ? (page.note(d) || '') : '';
+  if (src) {
+    els.plotImg.style.display = ''; els.plotMissing.style.display = 'none';
+    els.plotImg.src = src; els.plotImg.alt = 'Folded light curve of ' + els.plotTitle.textContent;
   } else {
-    els.nst.style.display = '';
+    els.plotImg.removeAttribute('src'); els.plotImg.style.display = 'none';
+    els.plotMissing.style.display = 'flex';
+    els.plotMissing.textContent = page.noPlot || 'No figure for this row.';
+  }
+  els.plotCaption.textContent = src ? (typeof page.caption === 'function' ? page.caption(d) : (page.caption || '')) : '';
+  els.plotPanel.classList.add('visible');
+  if (page.nst === false) {
+    els.nstFigure.style.display = 'none';
+  } else {
+    els.nstFigure.style.display = '';
     const hasLocal = d['log10(p local)'] != null;            // TESS pages: the panel is local, the reported p global
     drawNullSF(els.nst, d['sm_sf_grid'] || '', d.SNR, hasLocal ? d['log10(p local)'] : d['log10(p value)'], d['nst_samples'] || '',
                hasLocal ? d['log10(p value)'] : null, d['n_period_bins']);
   }
-  els.plotPanel.classList.add('visible');
   els.plotPanel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
@@ -724,8 +1007,8 @@ async function renderTablePage(page) {
 
   const hintEl = document.querySelector('#toolbar .hint');
   if (hintEl) hintEl.textContent = page.plot
-    ? 'Click any row to see its diagnostic plots · Click column headers to sort'
-    : 'Click column headers to sort';
+    ? 'Click a row for its figures · click a column header to sort'
+    : 'Click a column header to sort';
 
   if (page.downloadFilename) {
     els.downloadBtn.style.display = '';
@@ -758,6 +1041,11 @@ async function renderTablePage(page) {
     columns: page.columns || buildColumns(page),
   });
   if (page.plot) table.on('rowClick', (e, row) => showPlot(page, row.getData()));
+  const total = rows.length;
+  const count = n => { els.rowcount.textContent = n === total ? `${num(total)} rows` : `${num(n)} of ${num(total)} rows`; };
+  els.rowcount.textContent = '';
+  table.on('dataFiltered', (filters, shown) => count(shown.length));
+  table.on('tableBuilt', () => count(table.getDataCount('active')));
 
   // "Show extended catalog" toggle: collapsible TESS tables start with only the core columns;
   // this reveals/hides all the extra columns (tests, stellar params, null stats, …).
@@ -770,7 +1058,7 @@ async function renderTablePage(page) {
       extOpen = !extOpen;
       table.getColumns().forEach(col => {
         const f = col.getField();
-        if (f && !TESS_DEFAULT_FIELDS.has(f)) extOpen ? col.show() : col.hide();
+        if (f && !TESS_DEFAULT_FIELDS.has(f) && !(page.otherSurveys && f === page.otherSurveys.nameField && !tessOnly)) extOpen ? col.show() : col.hide();
       });
       els.extendedToggle.textContent = extOpen ? 'Hide extended catalog' : 'Show extended catalog';
       els.extendedToggle.classList.toggle('open', extOpen);
@@ -798,21 +1086,43 @@ async function renderTablePage(page) {
   } else {
     els.passingToggle.style.display = 'none';
   }
+
+  // "TESS discoveries": pages with otherSurveys start without the confirmed planets that have no TOI number (catalog
+  // rows that were never fitted); releasing the button adds them, together with the column that holds their names
+  tessOnly = !!page.otherSurveys;
+  els.tessToggle.style.display = page.otherSurveys ? '' : 'none';
+  if (page.otherSurveys) {
+    const paint = () => {
+      els.tessToggle.setAttribute('aria-pressed', String(tessOnly));
+      els.tessToggle.title = tessOnly ? page.otherSurveys.on : page.otherSurveys.off;
+    };
+    paint();
+    els.tessToggle.onclick = () => {
+      tessOnly = !tessOnly;
+      paint();
+      table.getColumns().forEach(col => { if (col.getField() === page.otherSurveys.nameField) tessOnly ? col.hide() : col.show(); });
+      applyFilters();
+    };
+  }
   applyFilters();
 }
 
-// table filters: the passing-only view (AND) the free-text TIC/TOI filter (OR over its fields)
-let passingOnly = false;
+// table filters: the TESS-discoveries view (AND) the passing-only view (AND) the free-text filter (OR over its fields).
+// The confirmed planets without a TOI number were never tested, so the passing-only view does not hide them once they are added.
+let passingOnly = false, tessOnly = false;
 function applyFilters() {
   if (!table) return;
   const filters = [];
-  if (passingOnly) filters.push({ field: 'passed_all_tests', type: '=', value: true });
+  const passing = { field: 'passed_all_tests', type: '=', value: true };
+  const other = currentPage?.otherSurveys?.field;
+  if (other && tessOnly) filters.push({ field: other, type: '!=', value: true });
+  if (passingOnly) filters.push(other && !tessOnly ? [{ field: other, type: '=', value: true }, passing] : passing);
   const v = els.filter.value.trim();
   if (v) {
     const fields = currentPage?.filterFields || ['TIC', 'TOI'];
     filters.push(fields.map(f => ({ field: f, type: 'like', value: v })));
   }
-  if (filters.length) table.setFilter(filters); else table.clearFilter(true);
+  if (filters.length) table.setFilter(filters); else table.clearFilter();   // header filters stay
 }
 
 function renderPlaceholder() {
@@ -830,24 +1140,31 @@ function renderPlaceholder() {
 }
 
 function switchPage(key) {
-  const page = PAGES.find(p => p.key === key) || PAGES.find(p => p.key === 'tess');
+  const page = PAGES.find(p => p.key === key) || PAGES.find(p => p.key === 'overview');
   document.getElementById('page-title').textContent = page.title;
-  document.title = page.title;
-  [...els.nav.children].forEach(a => a.classList.toggle('active', a.dataset.key === page.key));
+  document.title = page.key === 'overview' ? 'Bayesian Exoplanets' : page.title + ' · Bayesian Exoplanets';
+  const lede = typeof page.lede === 'function' ? (STATS ? page.lede(STATS) : '') : (page.lede || '');
+  document.getElementById('page-lede').textContent = lede;
+  const stats = (STATS && page.stats) ? page.stats(STATS) : [];
+  document.getElementById('stats').innerHTML = stats.filter(s => s[0] != null)
+    .map(s => `<div class="stat"><b>${num(s[0])}</b><span>${s[1]}</span></div>`).join('');
+  [...els.nav.querySelectorAll('a')].forEach(a => a.classList.toggle('active', a.dataset.key === page.key));
   if (location.hash !== '#' + page.key) history.replaceState(null, '', '#' + page.key);
   window.scrollTo(0, 0);
   loadPageText(page);
   if (page.type === 'table') renderTablePage(page); else renderPlaceholder();
 }
 
-function main() {
+async function main() {
   els.container   = document.getElementById('container');
   els.nav         = document.getElementById('nav');
   els.pagetext    = document.getElementById('pagetext');
   els.toolbar     = document.getElementById('toolbar');
   els.filter      = document.getElementById('filter');
+  els.rowcount    = document.getElementById('rowcount');
   els.downloadBtn = document.getElementById('download-btn');
   els.passingToggle = document.getElementById('passing-toggle');
+  els.tessToggle  = document.getElementById('tess-toggle');
   els.downloads   = document.getElementById('downloads');
   els.oodPanel    = document.getElementById('ood-panel');
   els.oodToggle   = document.getElementById('ood-toggle');
@@ -857,12 +1174,24 @@ function main() {
   els.tableWrap   = document.getElementById('table-wrap');
   els.plotPanel   = document.getElementById('plot-panel');
   els.plotImg     = document.getElementById('plot');
+  els.plotMissing = document.getElementById('plot-missing');
+  els.plotCaption = document.getElementById('plot-caption');
   els.plotTitle   = document.getElementById('plot-title');
+  els.plotFacts   = document.getElementById('plot-facts');
+  els.plotNote    = document.getElementById('plot-note');
   els.nst         = document.getElementById('nst');
+  els.nstFigure   = document.getElementById('nst-figure');
 
+  let group = null;
   PAGES.forEach(p => {
+    if (p.group && p.group !== group) {
+      const label = document.createElement('span');
+      label.className = 'group'; label.textContent = p.group;
+      els.nav.appendChild(label);
+    }
+    group = p.group || null;
     const a = document.createElement('a');
-    a.textContent = p.title; a.dataset.key = p.key; a.href = '#' + p.key;
+    a.textContent = p.nav || p.title; a.dataset.key = p.key; a.href = '#' + p.key;
     els.nav.appendChild(a);
   });
   els.filter.addEventListener('input', applyFilters);
@@ -881,8 +1210,11 @@ function main() {
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape' && els.plotPanel.classList.contains('visible')) document.getElementById('plot-close').click();
   });
+  // the counts the pages quote; the site works without them
+  try { const r = await fetch('site_stats.json'); if (r.ok) STATS = await r.json(); } catch (e) { STATS = null; }
+  if (STATS && STATS.updated) document.getElementById('updated').textContent = 'Catalogs updated ' + STATS.updated + '.';
   window.addEventListener('hashchange', () => switchPage(location.hash.slice(1)));
-  switchPage(location.hash.slice(1) || 'tess');
+  switchPage(location.hash.slice(1) || 'overview');
 }
 
 main();

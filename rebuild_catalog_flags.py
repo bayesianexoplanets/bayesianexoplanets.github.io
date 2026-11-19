@@ -34,7 +34,7 @@ MAX_MISSING = 40            # curated-catalog rows without a re-vetting row; abo
                             # re-vetted by construction, and keep the candidate tests' flags: they do not count.
 CURATED = HOME + "TESS/tois_corrected.csv"
 MAX_CONFIRMED_FOLD = 0.02   # fold_shape may reject at most this fraction of the confirmed planets
-DIAGNOSTICS = ["spurious1", "snrd_pvalue", "num_available_transits", "single_transit_ratio",
+DIAGNOSTICS = ["spurious1", "snrd_pvalue", "snrd_group_pvalue", "num_available_transits", "single_transit_ratio",
                "window_ok", "fold_absorbed", "fold_applicable"]
 
 

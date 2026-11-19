@@ -18,7 +18,7 @@ HOME = "/global/u2/j/julius/exoplanets/"
 sys.path.insert(0, HOME)
 from false_alarms.fold_shape import fold_shape_rejects            # noqa: E402
 from pipeline.thresholds import (SPURIOUS_MAX, SNRD_MIN, SNR_OVERRIDE,   # noqa: E402,F401  one source of truth, shared with pipeline/post.py
-                                 SINGLE_TRANSIT_MIN, NTRANSITS_MIN)
+                                 SNRD_GROUP_MIN, SINGLE_TRANSIT_MIN, NTRANSITS_MIN)
 
 SIGNIFICANCE_MAX = -2.      # website only: log10 p of the SNR against the star's own null in the planet's period bin
 
@@ -66,7 +66,7 @@ def catalog_failures(row, eb_host=False):
     ----------
     row : mapping
         The website row merged with its re-vetting diagnostics: `SNR`, `spurious1`, `snrd_pvalue`,
-        `num_available_transits`, `single_transit_ratio`, `log10(p value)`, and the fold-shape
+        `snrd_group_pvalue`, `num_available_transits`, `single_transit_ratio`, `log10(p value)`, and the fold-shape
         columns (`fold_absorbed`, `fold_applicable`), and `TFOPWG Disposition` from the current
         ExoFOP table.
     eb_host : bool
@@ -79,6 +79,7 @@ def catalog_failures(row, eb_host=False):
     failed = []
     snr = _number(row, "SNR")
     spurious, snrd = _number(row, "spurious1"), _number(row, "snrd_pvalue")
+    snrd_group = _number(row, "snrd_group_pvalue")
     ntransits, single = _number(row, "num_available_transits"), _number(row, "single_transit_ratio")
     log10p = _number(row, "log10(p value)")
 
@@ -86,6 +87,8 @@ def catalog_failures(row, eb_host=False):
         failed.append("spurious")
     if np.isfinite(snrd) and snrd <= SNRD_MIN and np.isfinite(snr) and snr <= SNR_OVERRIDE:
         failed.append("snrd")
+    if np.isfinite(snrd_group) and snrd_group <= SNRD_GROUP_MIN and np.isfinite(snr) and snr <= SNR_OVERRIDE:
+        failed.append("snrd_group")
     if np.isfinite(single) and single < SINGLE_TRANSIT_MIN:
         failed.append("single_transit")
     if np.isfinite(ntransits) and ntransits < NTRANSITS_MIN:

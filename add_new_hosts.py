@@ -7,8 +7,12 @@ updated in place rather than duplicated. Null columns are left empty for `merge_
 and flags are left failing (`failed_tests = 'not_vetted'`) until `rebuild_catalog_flags.py` runs.
 Figures for touched stars are re-emitted from `NewRun_20260919/pretty/`.
 
+Fits under NTRANSITS_MIN are recorded in both `tois_few_transits.csv` files (appended, one row per (TIC, TOI)),
+as `remove_few_transits.py` does for catalog rows, so a dropped planet stays visible. --record-dropped-only
+writes only that record and leaves both catalogs and the figures untouched.
+
 Dry run by default; pass --apply.
-Usage: python add_new_hosts.py [--apply] [--run NewRun_20260919]
+Usage: python add_new_hosts.py [--apply] [--record-dropped-only] [--run NewRun_20260919]
 """
 import glob
 import os
@@ -27,13 +31,16 @@ from pipeline import catalog_from_known_planets as builder             # noqa: E
 from pipeline.thresholds import NTRANSITS_MIN                          # noqa: E402
 from TESS.load_tess import load_stellar_data                           # noqa: E402
 from merge_known_run import _to_jpg                                    # noqa: E402
+from remove_few_transits import append_unique                          # noqa: E402
 
 WEBSITE = os.path.join(HERE, "tois.csv")
 CATALOG = HOME + "TESS/tois_corrected.csv"
 PLOTS = os.path.join(HERE, "plots")
+FEW_WEBSITE = os.path.join(HERE, "tois_few_transits.csv")
+FEW_CATALOG = HOME + "TESS/tois_few_transits.csv"
 
 def selected(folder, scratch_out):
-    """The run's known-planet rows with at least NTRANSITS_MIN transits; no SNR cut."""
+    """The run's known-planet rows with at least NTRANSITS_MIN transits (no SNR cut), and the rows dropped."""
     table = builder.build(folder, out_path=scratch_out)
     table["TOI"] = table["TOI"].astype(float).round(2)
 
@@ -44,7 +51,26 @@ def selected(folder, scratch_out):
              int((~enough).sum()), NTRANSITS_MIN))
     print("  SNR of the carried rows: min %.2f, median %.2f, %d below 7.1 (kept; the p-value decides)"
           % (rows["SNR"].min(), rows["SNR"].median(), int((rows["SNR"] <= 7.1).sum())))
-    return rows
+    return rows, table[~enough].reset_index(drop=True)
+
+
+def record_dropped(dropped, saved, apply):
+    """Record the fits under NTRANSITS_MIN in both few-transits files (pipeline and website conventions)."""
+    if len(dropped) == 0:
+        return
+    t_start = {tic: float(load_stellar_data(tic)[0]) for tic in dropped["TIC"].astype(int).unique()}
+    website_rows = []
+    for _, row in dropped.iterrows():
+        values = website_values(row, saved.get((int(row["TIC"]), row["TOI"])), t_start[int(row["TIC"])])
+        values["failed_tests"] = "ntransits"
+        website_rows.append(values)
+    print("dropped under %d transits: %d fits on %d stars, e.g. %s"
+          % (NTRANSITS_MIN, len(dropped), dropped["TIC"].nunique(),
+             ", ".join("TOI %.2f" % t for t in dropped.nlargest(5, "SNR")["TOI"])))
+    if apply:
+        n_catalog = append_unique(FEW_CATALOG, dropped, "\t")
+        n_website = append_unique(FEW_WEBSITE, pd.DataFrame(website_rows), ",")
+        print("  recorded: %d new rows in %s, %d in %s" % (n_catalog, FEW_CATALOG, n_website, FEW_WEBSITE))
 
 
 def npz_by_planet(folder):
@@ -172,11 +198,17 @@ def reindex_figures(folder, website, touched, apply):
     return written, missing
 
 
-def main(folder, apply):
+def main(folder, apply, record_only=False):
     scratch_out = scratch + "tmp/new_hosts_catalog.tsv"       # scratch, so the repo stays clean
     os.makedirs(os.path.dirname(scratch_out), exist_ok=True)
-    rows = selected(folder, scratch_out)
+    rows, dropped = selected(folder, scratch_out)
     saved = npz_by_planet(folder)
+
+    record_dropped(dropped, saved, apply)
+    if record_only:
+        os.remove(scratch_out)
+        print("" if apply else "DRY RUN -- pass --apply to write the few-transits records")
+        return
 
     merge_catalog(rows, apply)
     website, touched = merge_website(rows, saved, apply)
@@ -191,4 +223,4 @@ if __name__ == "__main__":
     run = "NewRun_20260919"
     if "--run" in sys.argv:
         run = sys.argv[sys.argv.index("--run") + 1]
-    main(run, apply="--apply" in sys.argv)
+    main(run, apply="--apply" in sys.argv, record_only="--record-dropped-only" in sys.argv)

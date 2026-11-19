@@ -36,6 +36,16 @@ from pipeline.thresholds import NTRANSITS_MIN                         # noqa: E4
 
 WEBSITE = os.path.join(HERE, "tois.csv")
 CATALOG = HOME + "TESS/tois_corrected.csv"
+
+
+def append_unique(path, new, sep):
+    """Append rows to a record file, one row per (TIC, TOI), keeping the file's own columns; returns the count added."""
+    old = pd.read_csv(path, sep=sep) if os.path.exists(path) else pd.DataFrame(columns=new.columns)
+    have = set(zip(old["TIC"].astype(int), old["TOI"].astype(float).round(2)))
+    fresh = new[[(int(t), round(float(o), 2)) not in have for t, o in zip(new["TIC"], new["TOI"])]]
+    columns = list(old.columns) + [c for c in new.columns if c not in old.columns]
+    pd.concat([old, fresh], ignore_index=True).reindex(columns=columns).to_csv(path, sep=sep, index=False)
+    return len(fresh)
 PLOTS = os.path.join(HERE, "plots")
 PRETTY = scratch + "KnownRun_20260916/pretty/"
 
@@ -102,8 +112,8 @@ def main(apply):
         print("\nDRY RUN, pass --apply")
         return
 
-    dropped.to_csv(os.path.join(HERE, "tois_few_transits.csv"), index=False)
-    catalog[cat_drop].to_csv(HOME + "TESS/tois_few_transits.csv", sep="\t", index=False)
+    append_unique(os.path.join(HERE, "tois_few_transits.csv"), dropped, ",")      # appended: earlier records stay
+    append_unique(HOME + "TESS/tois_few_transits.csv", catalog[cat_drop], "\t")
 
     kept_web = website[~web_drop]
     kept_web.to_csv(WEBSITE, index=False)

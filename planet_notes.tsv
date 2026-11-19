@@ -1,0 +1,5 @@
+candidate	note
+TOI-3958.01	Transit times vary: the listed linear ephemeris follows the 2022 and 2024 transits (rms 1.7 h); the 2019 and 2020 transits fall 37 to 41 h from it.
+TOI-2892.01	Transit times vary by a few hours: the listed linear ephemeris follows the 2022 to 2025 transits within 1.8 h; the 2019 to 2021 transits fall 7 to 14 h from it.
+TOI-6626.01	All 17 transits of the 2023 sector are visible in the full-frame light curve; the 2025 sector (the only one with a two-minute light curve and the source of this row's SNR and figure) shows none.
+TOI-4179.01	Only the eight transits of the 2021 sector are clean; the 2025 two-minute light curve (the source of this row's SNR and figure) holds no detection.
