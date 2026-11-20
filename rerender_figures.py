@@ -23,9 +23,10 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE); sys.path.insert(0, os.path.dirname(HERE))
 from constants import scratch
 
-OUT = scratch + 'Rerender_20261119/'
+OUT = scratch + 'Rerender_20261120/'                     # Rerender_20261119/: drawn with the SPOC files' grid read as 600 s
 SUMMARY = OUT + 'summary.csv'
 FONT_SIZE = 15                                         # the house style; the pipeline's figures use 11
+LEGACY_STEP = 0.001388882 * 5                          # days: the grid the website's SPOC files were built on
 
 
 def tasks(only=None):
@@ -41,7 +42,17 @@ def tasks(only=None):
 
 
 def png_path(plot):
-    return OUT + plot.replace('/', '_').replace('.jpg', '.png')
+    return OUT + os.path.splitext(plot)[0].replace('/', '_') + '.png'
+
+
+def grid_stretch():
+    """Grid time per day of BTJD on the light curves the loaders currently read.
+
+    The pipeline counts time as t_start + Indices * dt. The all-sky archive was built with that step; the website's
+    SPOC files were built with LEGACY_STEP, so on them a time elapsed since t_start reads longer by dt / LEGACY_STEP.
+    """
+    from constants import dt
+    return 1. if os.environ.get('TESS_SHARD_ARCHIVE') else dt / LEGACY_STEP
 
 
 def draw(png, tic, period, when, is_epoch, tau, snr):
@@ -55,8 +66,10 @@ def draw(png, tic, period, when, is_epoch, tau, snr):
         from TESS.load_tess import load_stellar_data
         import matplotlib.pyplot as plt
         plt.rcParams['font.size'] = FONT_SIZE
-        phase = float(np.mod(when - float(load_stellar_data(tic)[0]), period)) if is_epoch else when
-        summary = pretty_transit_plot(tic, period, phase, tau, png, snr=snr)
+        stretch = grid_stretch()
+        elapsed = when - float(load_stellar_data(tic)[0]) if is_epoch else when
+        phase = float(np.mod(elapsed * stretch, period * stretch))
+        summary = pretty_transit_plot(tic, period * stretch, phase, tau * stretch, png, snr=snr)
         return dict(TIC=tic, model=str(summary.get('model', 'none')), seconds=time.time() - t0, error='')
     except Exception as e:
         return dict(TIC=tic, model='none', seconds=time.time() - t0, error=repr(e)[:200])

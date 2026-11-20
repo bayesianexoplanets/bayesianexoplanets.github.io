@@ -1,5 +1,5 @@
 {
- "updated": "2026-11-19",
+ "updated": "2026-11-20",
  "planets": 5381,
  "confirmed": 1637,
  "candidates": 3744,
@@ -10,6 +10,7 @@
  "planets_stale": 1,
  "planet_hosts": 5068,
  "planets_refitted": 415,
+ "planets_true_time": 5173,
  "ebs": 5772,
  "ebs_catalog": 4476,
  "ebs_toi": 639,
@@ -23,8 +24,8 @@
  "new_candidates": 189,
  "new_passing": 124,
  "planets_archive": 690,
- "planets_other_surveys": 2991,
- "other_survey_hosts": 2138,
+ "planets_other_surveys": 2851,
+ "other_survey_hosts": 2052,
  "ebs_curves": 5526,
  "new_figure_ext": ".webp"
 }

@@ -15,6 +15,11 @@ half-duration, as on the rest of the website.
                                                           the figures under plots_known/ (dry run by default); then run
                                                           build_verified_catalogs.py
 
+With `--nea` anywhere on the command line every stage works on a second group instead: the confirmed planets without a
+TOI number (NASA Exoplanet Archive members that the search's table keeps `frozen`, i.e. masks at their catalog values
+without fitting). For their figures they are fitted here like the others, through a copy of the table in which they
+are not frozen; results go to `known_fits_nea.tsv`.
+
 Runs in the pipeline's environment (`cosmology`, Python 3.8).
 """
 import os
@@ -49,8 +54,21 @@ def use_archive():
     os.environ['TESS_SHARD_ARCHIVE'] = ARCHIVE
 
 
+def nea():
+    """Whether this run works on the confirmed planets without a TOI number (`--nea`); inherited by the worker processes."""
+    return os.environ.get('KNOWN_FIGURES_GROUP', '') == 'nea'
+
+
+def place(kind):
+    """Where the current group keeps its fits, target list, table, figure log and website table."""
+    tag = '_nea' if nea() else ''
+    return {'fits': OUT + 'fits%s/' % tag, 'targets': OUT + 'targets%s.tsv' % tag, 'log': OUT + 'figures%s.csv' % tag,
+            'table': OUT + 'table_nea_unfrozen.tsv' if nea() else TABLE, 'site': os.path.join(HERE, 'known_fits%s.tsv' % tag)}[kind]
+
+
 def targets():
-    """The verified objects the search fits that have no website figure, one row each, with the name of their figure."""
+    """The verified objects without a website figure, one row each, with the name of their figure: those the search fits,
+    or with `--nea` the frozen planets on archive stars that no website row owns (`build_verified_catalogs.nea_rows`)."""
     from build_verified_catalogs import VerifiedCatalogs
     from analysis import known_objects as ko
     catalogs = VerifiedCatalogs()
@@ -59,9 +77,16 @@ def targets():
     own = np.abs(site['Period'].to_numpy() / table.loc[site['row'], 'period'].to_numpy() - 1.) < ko.SAME_PERIOD
     shown = set(site.loc[own, 'row'])
 
-    fitted = (table['masked'] & ~table['frozen'] & table['in_archive'] & np.isfinite(table['period']) & (table['period'] > 0)
-              & np.isfinite(table['epoch']))
-    wanted = table[fitted & table['object_class'].isin(CLASSES.values()) & ~table.index.isin(shown)].copy()
+    usable = table['masked'] & table['in_archive'] & np.isfinite(table['period']) & (table['period'] > 0) & np.isfinite(table['epoch'])
+    if nea():
+        wanted = table[usable & table['frozen'] & table['object_class'].isin([CLASSES['planet'], CLASSES['candidate']])
+                       & ~table.index.isin(set(site['row']))].copy()
+        if not os.path.exists(place('table')):                 # the search's table with these planets open to the fit
+            os.makedirs(OUT, exist_ok=True)
+            pd.read_csv(TABLE, sep='\t', low_memory=False).assign(frozen=lambda t: t['frozen'] & ~t.index.isin(wanted.index)).to_csv(
+                place('table'), sep='\t', index=False)
+    else:
+        wanted = table[usable & ~table['frozen'] & table['object_class'].isin(CLASSES.values()) & ~table.index.isin(shown)].copy()
     wanted['plot'] = 'plots_known/' + wanted['tic'].astype(str) + '/' + table.groupby('tic').cumcount()[wanted.index].astype(str) + '.jpg'
     return wanted[['tic', 'name', 'object_class', 'period', 'epoch', 'duration', 'secondary_phase', 'secondary_duration',
                    'review_signal', 'toi', 'plot']]
@@ -71,7 +96,7 @@ def search_masks():
     """The search's own masks, loaded once per process."""
     if 'masks' not in _state:
         from pipeline.search_masks import SearchMasks, KnownObjects
-        _state['masks'] = SearchMasks(KnownObjects(TABLE), fit_known=True)
+        _state['masks'] = SearchMasks(KnownObjects(place('table')), fit_known=True)
     return _state['masks']
 
 
@@ -102,8 +127,8 @@ def fit_one(tic):
     except Exception as e:
         frame = pd.DataFrame([dict(TIC=tic, name='', error=repr(e)[:300])])
     frame['seconds'] = time.time() - t0
-    frame.to_csv(OUT + 'fits/%d.csv.tmp' % tic, index=False)
-    os.replace(OUT + 'fits/%d.csv.tmp' % tic, OUT + 'fits/%d.csv' % tic)
+    frame.to_csv(place('fits') + '%d.csv.tmp' % tic, index=False)
+    os.replace(place('fits') + '%d.csv.tmp' % tic, place('fits') + '%d.csv' % tic)
     return tic, len(frame), float(time.time() - t0), '; '.join(sorted(set(frame['error'].dropna().astype(str)) - {''}))
 
 
@@ -124,12 +149,12 @@ def pool_map(worker, todo, workers):
 
 
 def fit(workers, only=None):
-    for sub in ('fits', 'figures'):
-        os.makedirs(OUT + sub, exist_ok=True)
+    for folder in (place('fits'), OUT + 'figures'):
+        os.makedirs(folder, exist_ok=True)
     wanted = targets()
-    wanted.to_csv(TARGETS, sep='\t', index=False)
+    wanted.to_csv(place('targets'), sep='\t', index=False)
     stars = only or sorted(int(t) for t in wanted['tic'].unique())
-    todo = [t for t in stars if not os.path.exists(OUT + 'fits/%d.csv' % t)]
+    todo = [t for t in stars if not os.path.exists(place('fits') + '%d.csv' % t)]
     print(len(todo), 'stars to fit,', workers, 'workers', flush=True)
     t_start = time.time()
     for i, (tic, n, seconds, error) in enumerate(pool_map(fit_one, todo, workers)):
@@ -141,8 +166,8 @@ def fit(workers, only=None):
 def collect():
     """The targets with their fit, where one exists, and whether it stayed at the listed ephemeris."""
     import glob
-    wanted = pd.read_csv(TARGETS, sep='\t')
-    frames = [pd.read_csv(p) for p in glob.glob(OUT + 'fits/*.csv')]
+    wanted = pd.read_csv(place('targets'), sep='\t')
+    frames = [pd.read_csv(p) for p in glob.glob(place('fits') + '*.csv')]
     fits = pd.concat(frames, ignore_index=True, sort=False) if frames else pd.DataFrame(columns=['TIC', 'name'])
     fits['name'] = fits['name'].fillna('').astype(str)
     merged = wanted.merge(fits.rename(columns={'TIC': 'tic', 'period': 'fit_period', 'epoch': 'fit_epoch'}), on=['tic', 'name'], how='left')
@@ -159,7 +184,7 @@ def draw(workers, classes):
     print(len(todo), 'figures to draw of', len(ready), 'fitted objects,', workers, 'workers', flush=True)
     t_start = time.time()
     for i, result in enumerate(pool_map(draw_one, todo, workers)):
-        pd.DataFrame([result]).to_csv(OUT + 'figures.csv', mode='a', header=not os.path.exists(OUT + 'figures.csv'), index=False)
+        pd.DataFrame([result]).to_csv(place('log'), mode='a', header=not os.path.exists(place('log')), index=False)
         if result['error'] or (i + 1) % 200 == 0 or workers == 1:
             print('[%d/%d] %s %.0f s %s (%.1f min)' % (i + 1, len(todo), result['plot'], result['seconds'], result['error'], (time.time() - t_start) / 60), flush=True)
     print('done in %.1f min' % ((time.time() - t_start) / 60), flush=True)
@@ -191,13 +216,19 @@ def install(apply):
     if not apply:
         print('dry run; pass --apply to write known_fits.tsv and the figures')
         return
-    planets.to_csv(KNOWN_FITS, sep='\t', index=False)
-    for r in planets[planets['figure'] != ''].itertuples():
+    planets.to_csv(place('site'), sep='\t', index=False)
+    shown = planets['figure'] != ''
+    if nea():
+        shown &= planets['n_transits'] > 0                 # the catalog drops a planet without a transit in the data
+    for r in planets[shown].itertuples():
         site_figures.install(r.figure, HERE, r.plot)
     print('installed', len(planets), 'rows; now run build_verified_catalogs.py')
 
 
 if __name__ == '__main__':
+    if '--nea' in sys.argv:
+        sys.argv.remove('--nea')
+        os.environ['KNOWN_FIGURES_GROUP'] = 'nea'
     stage = sys.argv[1] if len(sys.argv) > 1 else ''
     if stage == 'list':
         wanted = targets()

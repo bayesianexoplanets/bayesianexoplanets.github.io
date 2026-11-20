@@ -21,6 +21,10 @@ except where its verdict is `unclear`; `planet_notes.tsv` holds the one-line rem
   TOI nor a TESS-EB entry, on a star of the archive. The search masks them at their catalog values without fitting
   them, so they carry the catalog ephemeris only; the website hides them until "TESS discoveries" is switched off.
 `plot` is the figure of a row (the per-star index of `tois.csv` is fixed here, so removing rows cannot shift it).
+Rows refitted on the samples' true times and adopted (`true_time_catalog.py table` -> `true_time_fits.tsv`) are listed
+at that fit: its period and epoch with their errors, SNR, radius, transit count and fit columns, `Ephemeris` =
+`true-time fit`, and for the SPOC rows the p-value of the new SNR as for a refit. Their `Duration` stays the verified
+full width.
 Text cells never contain a comma: the website splits lines on commas. `site_stats.json` holds the counts the pages quote.
 """
 import json
@@ -42,6 +46,7 @@ FINDINGS = ko.scratch + 'allsky_search/known_review_opus/findings.tsv'   # the s
 REFIT_FINDINGS = ko.scratch + 'allsky_search/known_review_refit/findings.tsv'   # the second look at ten refitted rows
 NOTES = os.path.join(HERE, 'planet_notes.tsv')
 KNOWN_FITS = os.path.join(HERE, 'known_fits.tsv')                       # known_figures.py install
+KNOWN_FITS_NEA = os.path.join(HERE, 'known_fits_nea.tsv')               # known_figures.py install --nea
 EB_FIGURES = os.path.join(HERE, 'eb_figures.tsv')                       # eb_figure.py install
 EB_REVIEW = os.path.join(HERE, 'eb_review2.tsv')                        # allsky_search/known_review_eb/apply_review.py --write
 SECOND_REVIEW = {'clear': 'second review: clear signal', 'weak': 'second review: weak signal', 'none': 'second review: no signal'}
@@ -52,6 +57,8 @@ REFITS = os.path.join(HERE, 'refits.tsv')
 SAME_BIN = 0.01                                                         # relative period change that keeps the null's period bin
 CLOSEST_BIN = 2.5                                                       # largest period factor to a borrowed null (user, 2026-11-19)
 NULL_COLUMNS = ['sm_sf_grid', 'nst_samples', 'μ(SNR | null)', 'σ(SNR | null)', 'n_period_bins']
+TRUE_TIME = os.path.join(HERE, site_figures.TRUE_TIME)                   # true_time_catalog.py table
+TRUE_TIME_SOURCE = 'true-time fit'
 
 
 class VerifiedCatalogs:
@@ -72,6 +79,9 @@ class VerifiedCatalogs:
         self.families = ko.scenario_families()
         self.windows = ko.ObservedWindows(ArchiveCensus.load(ko.CENSUS_PATH, ko.ARCHIVE_ROOT))
         self.refits = (pd.read_csv(REFITS, sep='\t').set_index('plot') if os.path.exists(REFITS) else pd.DataFrame())
+        self.true_time = pd.read_csv(TRUE_TIME, sep='\t') if os.path.exists(TRUE_TIME) else pd.DataFrame(columns=['plot', 'adopted'])
+        self.true_time = self.true_time[self.true_time['adopted'].astype(bool)].set_index('plot')
+        assert self.true_time.index.is_unique, 'a figure has two true-time fits'
         self.owner = {}
         for index, tic, members in zip(self.table.index, self.table['tic'], self.table['members'].astype(str)):
             for name in members.split('|'):
@@ -137,6 +147,8 @@ class VerifiedCatalogs:
             del row['Phase'], row['Tau']
             if row['fit_stale'] and s['plot'] in self.refits.index and self.refits.at[s['plot'], 'agrees'] == True:
                 row.update(self.refit(row, self.refits.loc[s['plot']]))
+            if site_figures.webp(s['plot']) in self.true_time.index:
+                row.update(self.true_time_fit(row, self.true_time.loc[site_figures.webp(s['plot'])], s['Period']))
             rows.append(row)
         return pd.DataFrame(rows)
 
@@ -174,11 +186,67 @@ class VerifiedCatalogs:
         t = self.table
         shown = set(self.site.loc[self.site['row'] >= 0, 'row'])
         nea = t[t['frozen'] & t['masked'] & t['in_archive'] & t['object_class'].isin(PLANET_CLASSES) & ~t.index.isin(shown)]
-        return pd.DataFrame({
+        rows = pd.DataFrame({
             'TIC': nea['tic'].to_numpy(), 'known_as': [planet_name(r) for _, r in nea.iterrows()],
             'Class': nea['object_class'].map(PLANET_CLASSES).to_numpy(), 'Period': nea['period'].to_numpy(), 'Epoch': nea['epoch'].to_numpy(),
             'Duration': nea['duration'].to_numpy(), 'Checked': [self.checked(r) for _, r in nea.iterrows()], 'Ephemeris': 'catalog',
             'plot': '', 'Note': '', 'Data': '', 'NEA_only': True})
+        if not os.path.exists(KNOWN_FITS_NEA):
+            return rows
+        # fitted for their figure (the search itself keeps them at the catalog values); a planet with no transit in
+        # the TESS data of its star is not listed
+        fit = pd.read_csv(KNOWN_FITS_NEA, sep='\t').drop_duplicates(['tic', 'name']).set_index(['tic', 'name']).reindex(
+            pd.MultiIndex.from_arrays([nea['tic'], nea['name']]))
+        observed = (fit['SNR'].notna() & (fit['n_transits'] > 0)).to_numpy()
+        figure = fit['figure'].fillna('').astype(str).to_numpy() != ''
+        rows = rows.assign(**{
+            'SNR': fit['SNR'].to_numpy(), 'Radius_planet': fit['radius'].to_numpy(), 'Radius_planet_errp': fit['radius_errp'].to_numpy(),
+            'Radius_planet_errm': fit['radius_errm'].to_numpy(), 'Radius': fit['star_radius'].to_numpy(),
+            'Number of Valid Transits': fit['n_transits'].to_numpy(), 'Period_fit': fit['fit_period'].to_numpy(), 'Epoch_fit': fit['fit_epoch'].to_numpy(),
+            'Duration_fit': 2. * fit['tau'].to_numpy(), 'Tau_fit': fit['tau'].to_numpy(), 'Phase_fit': fit['phase'].to_numpy(),
+            'fit_stale': (fit['agrees'] != True).to_numpy(), 'plot': np.where(figure, fit['plot'].fillna('').to_numpy(), ''), 'Data': 'archive'})
+        return rows[observed].reset_index(drop=True)
+
+
+    def true_time_record(self, row, fit):
+        """A true-time fit in the fields `refit` reads. The fits stored the radius' median only: it is listed with the
+        row's relative errors."""
+        old, radius = row.get('Radius_planet', np.nan), fit['radius']
+        scale = radius / old if np.isfinite(radius) and np.isfinite(old) and old > 0 else np.nan
+        return dict(SNR=fit['SNR'], period=fit['period'], epoch=fit['epoch'], tau=fit['tau'], phase=fit['phase'], n_transits=fit['n_transits'],
+                    radius=radius, radius_errp=row.get('Radius_planet_errp', np.nan) * scale, radius_errm=row.get('Radius_planet_errm', np.nan) * scale)
+
+
+    def true_time_fit(self, row, fit, null_period):
+        """The columns a fit on the samples' true times replaces in a SPOC row: the listed period and epoch with their
+        errors, and everything `refit` replaces; `null_period` is the period whose null searches the row stores."""
+        new = self.refit(dict(row, Period=fit['period'], Period_fit=null_period), self.true_time_record(row, fit))
+        new.update(Period=fit['period'], Epoch=fit['epoch'], err_Period=fit['err_period'], err_Epoch=fit['err_epoch'], Ephemeris=TRUE_TIME_SOURCE)
+        return new
+
+
+    def true_time_archive(self, rows):
+        """The archive-fitted rows listed at their fit on the samples' true times (no null searches: no p-value)."""
+        rows = rows.copy()
+        for column in ('err_Period', 'err_Epoch'):
+            if column not in rows:
+                rows[column] = np.nan
+        for index, plot in rows['plot'].items():
+            key = site_figures.webp(plot) if isinstance(plot, str) and plot != '' else ''
+            if key not in self.true_time.index:
+                continue
+            fit = self.true_time.loc[key]
+            record = self.true_time_record(rows.loc[index], fit)
+            new = {'Period': fit['period'], 'Epoch': fit['epoch'], 'err_Period': fit['err_period'], 'err_Epoch': fit['err_epoch'],
+                   'Ephemeris': TRUE_TIME_SOURCE, 'SNR': fit['SNR'], 'Period_fit': fit['period'], 'Epoch_fit': fit['epoch'],
+                   'Duration_fit': 2. * fit['tau'], 'Tau_fit': fit['tau'], 'Phase_fit': fit['phase'], 'fit_stale': False}
+            if np.isfinite(record['radius']):
+                new.update({'Radius_planet': record['radius'], 'Radius_planet_errp': record['radius_errp'], 'Radius_planet_errm': record['radius_errm']})
+            if fit['n_transits'] >= 0:
+                new['Number of Valid Transits'] = int(fit['n_transits'])
+            for column, value in new.items():
+                rows.at[index, column] = value
+        return rows
 
 
     def refit(self, row, fit):
@@ -290,6 +358,7 @@ if __name__ == '__main__':
     ebs = catalogs.eb_figures(catalogs.second_review(ebs))
     ebs.loc[ebs['plot'] == '', 'Curve'] = ''
     archive, nea = catalogs.archive_rows(set(zip(planets['TIC'], planets['TOI']))), catalogs.nea_rows()
+    archive, nea = catalogs.true_time_archive(archive), catalogs.true_time_archive(nea)
     write(pd.concat([planets, archive, nea], ignore_index=True, sort=False)[list(planets.columns)], 'tess_planets.csv')
     print('rows fitted on the SPOC files %d, on the archive %d (with SNR %d, with a figure %d), confirmed planets without a TOI number %d on %d stars'
           % (len(planets), len(archive), archive['SNR'].notna().sum() if len(archive) else 0, (archive['plot'] != '').sum() if len(archive) else 0,
@@ -312,6 +381,7 @@ if __name__ == '__main__':
                  planets_reviewed_signal=signal(planets), planets_analysis_only=int((planets['Checked'] == 'false-positive analysis').sum()),
                  planets_stale=int(planets['fit_stale'].sum()), planet_hosts=int(listed['TIC'].nunique()),
                  planets_refitted=int(planets['plot'].isin(catalogs.refits.index[catalogs.refits['agrees'] == True]).sum()) if len(catalogs.refits) else 0,
+                 planets_true_time=int((pd.concat([planets, archive, nea], sort=False)['Ephemeris'] == TRUE_TIME_SOURCE).sum()),
                  ebs=len(ebs), ebs_catalog=int((ebs['Origin'] == 'TESS-EB catalog').sum()), ebs_toi=int((ebs['Origin'] == 'TOI disposition').sum()),
                  ebs_reclassified=int(ebs['Origin'].isin(['false-positive analysis', 'review']).sum()), ebs_reviewed_signal=signal(ebs),
                  ebs_no_signal=int(ebs['Checked'].str.endswith('no signal').sum()),

@@ -281,7 +281,8 @@ const EB_PANELS = d => 'Top: the primary and the secondary eclipse. Bottom: the 
   (d.Fold_period != null && d.Fold_period > 1.5 * d.Period ? ', folded at twice the listed period: the two eclipses of a pair of similar stars. ' : '. ');
 const EB_CAPTION = {
   'posterior': d => EB_PANELS(d) + 'Dashed: the binary model of the false-positive analysis, the median of its posterior samples (band: 68 %). Only the baseline and a time shift are fitted. The fold uses the two-minute sectors, the data that analysis was fitted to.',
-  'physical fit': d => EB_PANELS(d) + 'Dashed: an eclipse model of two limb-darkened stars, fitted to the fold. Its parameters are not measurements.',
+  'physical fit': d => EB_PANELS(d) + 'Dashed: an eclipse model of two limb-darkened stars, fitted to the fold together with a smooth orbital wave. Its parameters are not measurements. A red dotted line marks the listed epoch where the eclipse sits elsewhere.',
+  'harmonic': d => 'The light curve folded at the orbital period: a smooth wave without a separate eclipse (a contact or ellipsoidal binary). Dashed: the first four orbital harmonics fitted to the fold.',
   'two-Gaussian fit': d => 'The light curve folded at the orbital period. Dashed: a two-Gaussian eclipse model fitted to the fold; it describes the shape and carries no physics.',
   'none': d => 'The light curve folded at the listed ephemeris. Neither the review nor a fit to this fold found an eclipse there, so no model is drawn.',
   'no curve': d => 'The light curve folded at the listed ephemeris. No model is drawn: a fitted curve did not describe the eclipse, mostly because it sits on a larger wave.',
@@ -315,7 +316,7 @@ const PAGES = [
       d.fit_stale === true && d.Data === 'archive' ? `The fit behind the SNR and radius settled at P = ${fx(d.Period_fit, 6)} d, epoch ${fx(d.Epoch_fit, 4)}, more than half a transit duration from the listed, verified ephemeris; the figure is folded at the listed one.` : '',
       d.null_bin_period != null ? `The p-value uses the null searches of this star's closest period bin, at P = ${fx(d.null_bin_period, 4)} d; the signal's own bin has none yet.` : '',
       d.Data === 'archive' ? 'SNR, radius and figure come from our fit to the all-sky light curve of this star. It has no null searches yet, so the row has no p-value and no test results.' : '',
-      d.NEA_only === true ? 'A confirmed planet without a TOI number, listed at its NASA Exoplanet Archive ephemeris. Our search masks it at these values without fitting it, so the row has no SNR, radius or figure.' : '',
+      d.NEA_only === true ? 'A confirmed planet without a TOI number, listed at its NASA Exoplanet Archive ephemeris. TESS often cannot see such a planet: a low SNR here says only that.' : '',
       d.Note || '',
     ].filter(Boolean).join(' '),
     ptitle:d => `TIC ${d.TIC} TOI ${d.TOI}` },
@@ -402,7 +403,7 @@ const COLUMNS = [
 // Columns shown by default on the collapsible TESS tables; everything else is hidden until the
 // user clicks "Show extended catalog". (proposed_toi is the TOI-equivalent for New Candidates.)
 // bump when figures are replaced under unchanged file names, so browsers and the Pages CDN reload them
-const PLOT_VERSION = '20261119d';
+const PLOT_VERSION = '20261120b';
 
 const TESS_DEFAULT_FIELDS = new Set(['TIC', 'TOI', 'proposed_toi', 'Class', 'Period', 'SNR', 'Radius_planet', 'habitable_zone', 'log10(p value)']);
 
